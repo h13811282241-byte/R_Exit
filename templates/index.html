@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>R Exit Manager 控制台</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 24px;
+        background-color: #f5f6fa;
+      }
+      h1 {
+        font-size: 20px;
+      }
+      form,
+      .panel {
+        background: #fff;
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+      }
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        margin-top: 4px;
+      }
+      button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        background-color: #0052d9;
+        color: #fff;
+      }
+      button.secondary {
+        background-color: #f44336;
+        margin-left: 12px;
+      }
+      .logs {
+        height: 320px;
+        overflow: auto;
+        background-color: #111;
+        color: #f0f0f0;
+        font-family: Menlo, Consolas, monospace;
+        padding: 12px;
+        border-radius: 6px;
+      }
+      .status-item {
+        margin-bottom: 8px;
+      }
+      .status-pill {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #fff;
+      }
+      .status-running {
+        background-color: #28a745;
+      }
+      .status-stopped {
+        background-color: #999;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Binance R Exit 控制台</h1>
+
+    <form id="startForm">
+      <label>
+        交易对 Symbol
+        <input type="text" name="symbol" value="ETHUSDT" required />
+      </label>
+      <label>
+        初始止损价
+        <input type="number" name="stop" step="0.0001" required />
+      </label>
+      <label>
+        轮询间隔（秒）
+        <input type="number" name="pollInterval" value="3" step="0.1" min="1" />
+      </label>
+      <label>
+        <input type="checkbox" name="testnet" />
+        使用 Testnet
+      </label>
+      <div style="margin-top: 12px">
+        <button type="submit">启动策略</button>
+        <button type="button" id="stopBtn" class="secondary">停止策略</button>
+      </div>
+    </form>
+
+    <div class="panel">
+      <div class="status-item">
+        状态：
+        <span id="statusPill" class="status-pill status-stopped">未运行</span>
+      </div>
+      <div class="status-item">当前配置：<span id="configInfo">-</span></div>
+      <div class="status-item">启动时间：<span id="startTime">-</span></div>
+    </div>
+
+    <div class="panel">
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <h2 style="margin: 0; font-size: 16px">实时日志</h2>
+        <button type="button" id="refreshBtn">刷新</button>
+      </div>
+      <div class="logs" id="logBox"></div>
+    </div>
+
+    <script>
+      const logBox = document.getElementById("logBox");
+      const statusPill = document.getElementById("statusPill");
+      const configInfo = document.getElementById("configInfo");
+      const startTime = document.getElementById("startTime");
+
+      async function fetchStatus() {
+        const res = await fetch("/api/status");
+        const data = await res.json();
+
+        if (data.running) {
+          statusPill.textContent = "运行中";
+          statusPill.className = "status-pill status-running";
+        } else {
+          statusPill.textContent = "未运行";
+          statusPill.className = "status-pill status-stopped";
+        }
+
+        configInfo.textContent = data.config
+          ? `${data.config.symbol} / stop=${data.config.stop} / poll=${data.config.pollInterval}s / testnet=${data.config.testnet}`
+          : "-";
+        startTime.textContent = data.startTime
+          ? new Date(data.startTime * 1000).toLocaleString()
+          : "-";
+
+        logBox.innerHTML = data.logs
+          .map((item) => {
+            const ts = new Date(item.timestamp * 1000).toLocaleTimeString();
+            return `<div>[${ts}] ${item.line}</div>`;
+          })
+          .join("");
+        logBox.scrollTop = logBox.scrollHeight;
+      }
+
+      document.getElementById("startForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const payload = {
+          symbol: formData.get("symbol"),
+          stop: parseFloat(formData.get("stop")),
+          pollInterval: parseFloat(formData.get("pollInterval")),
+          testnet: formData.get("testnet") === "on",
+        };
+        const res = await fetch("/api/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.error || "启动失败");
+        }
+        fetchStatus();
+      });
+
+      document.getElementById("stopBtn").addEventListener("click", async () => {
+        await fetch("/api/stop", { method: "POST" });
+        fetchStatus();
+      });
+
+      document.getElementById("refreshBtn").addEventListener("click", fetchStatus);
+
+      fetchStatus();
+      setInterval(fetchStatus, 5000);
+    </script>
+  </body>
+</html>
