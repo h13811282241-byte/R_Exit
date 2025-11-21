@@ -25,6 +25,8 @@ def detect_signals(
     sl_mode: str = "outer_bar",
     tp_ratio: float = 0.5,
     sl_offset_ratio: float = 1.0,
+    tp_ref: str = "prev",  # "signal" 或 "prev"
+    sl_ref: str = "prev",
 ) -> List[Dict]:
     """
     返回信号列表：idx/side/entry/sl/tp/mid/height
@@ -34,6 +36,10 @@ def detect_signals(
         raise ValueError("quiet_lookback 必须 > 0")
     tp_ratio = max(0.0, min(1.0, tp_ratio))
     sl_offset_ratio = max(0.0, sl_offset_ratio)
+    if tp_ref not in {"signal", "prev"}:
+        tp_ref = "prev"
+    if sl_ref not in {"signal", "prev"}:
+        sl_ref = "prev"
 
     prices = df[["open", "high", "low", "close", "volume"]].to_numpy()
     bodies = np.abs(prices[:, 3] - prices[:, 0])
@@ -61,21 +67,32 @@ def detect_signals(
             continue
 
         side = "short" if close_i > open_i else "long"
-        mid_i = (high_i + low_i) / 2
         height_i = high_i - low_i
         if height_i <= 0:
             continue
 
-        if sl_mode == "outer_bar":
-            sl = low_i - height_i * sl_offset_ratio if side == "long" else high_i + height_i * sl_offset_ratio
-        else:
-            raise ValueError(f"未知 sl_mode: {sl_mode}")
+        # 参考高度：signal 本身，或前一根
+        ref_h_tp = height_i
+        ref_h_sl = height_i
+        if i > 0 and tp_ref == "prev":
+            h_prev = prices[i - 1, 1] - prices[i - 1, 2]  # high - low
+            ref_h_tp = h_prev if h_prev > 0 else height_i
+        if i > 0 and sl_ref == "prev":
+            h_prev = prices[i - 1, 1] - prices[i - 1, 2]
+            ref_h_sl = h_prev if h_prev > 0 else height_i
 
-        # 可调 TP 比例：默认 0.5 为中位价
+        tp_dist = ref_h_tp * tp_ratio
+        sl_dist = ref_h_sl * sl_offset_ratio
+        if tp_dist <= 0 or sl_dist <= 0:
+            continue
+
+        entry = close_i
         if side == "long":
-            tp = low_i + height_i * tp_ratio
+            tp = entry + tp_dist
+            sl = entry - sl_dist
         else:
-            tp = high_i - height_i * tp_ratio
+            tp = entry - tp_dist
+            sl = entry + sl_dist
 
         signals.append(
             {
