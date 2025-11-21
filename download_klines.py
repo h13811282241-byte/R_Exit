@@ -10,6 +10,8 @@ from typing import List, Dict
 
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 BASE_ENDPOINTS: Dict[str, str] = {
@@ -37,7 +39,23 @@ def _ts_to_str(ms: int) -> str:
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def download_klines(symbol: str, interval: str, start_time: str, end_time: str, market_type: str = "spot") -> pd.DataFrame:
+def _build_session() -> requests.Session:
+    session = requests.Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+def download_klines(
+    symbol: str, interval: str, start_time: str, end_time: str, market_type: str = "spot", timeout: int = 30
+) -> pd.DataFrame:
     api_key = _require_api_key()
     if market_type not in BASE_ENDPOINTS:
         raise ValueError(f"不支持的市场类型: {market_type}")
@@ -48,6 +66,7 @@ def download_klines(symbol: str, interval: str, start_time: str, end_time: str, 
     end_ms = _to_ms(end_time)
 
     rows: List[List] = []
+    session = _build_session()
     while True:
         params = {
             "symbol": symbol.upper(),
@@ -56,7 +75,7 @@ def download_klines(symbol: str, interval: str, start_time: str, end_time: str, 
             "endTime": end_ms,
             "limit": 1000,
         }
-        resp = requests.get(url, params=params, headers=headers, timeout=15)
+        resp = session.get(url, params=params, headers=headers, timeout=timeout)
         if resp.status_code != 200:
             raise RuntimeError(f"请求失败: {resp.status_code} {resp.text}")
         batch = resp.json()
@@ -100,6 +119,7 @@ def main():
     parser.add_argument("--end", required=True)
     parser.add_argument("--outfile", required=True)
     parser.add_argument("--market_type", default="spot", choices=list(BASE_ENDPOINTS.keys()))
+    parser.add_argument("--timeout", type=int, default=30, help="请求超时秒数，默认30")
     args = parser.parse_args()
 
     df = download_klines(args.symbol, args.interval, args.start, args.end, market_type=args.market_type)
