@@ -133,6 +133,43 @@ def main():
     summary = summarize_trades(trades)
     eq = equity_curve(trades)
 
+    def loss_streak_info(trades, key="net_R"):
+        max_len = 0
+        cur_len = 0
+        worst_sum = 0.0
+        cur_sum = 0.0
+        max_range = (None, None)
+        cur_start = None
+        for i, t in enumerate(trades):
+            val = t.get(key) if key in t else t.get("R")
+            if val is None or pd.isna(val):
+                val = 0.0
+            if val < 0:
+                if cur_len == 0:
+                    cur_start = i
+                cur_len += 1
+                cur_sum += val
+                if cur_sum < worst_sum:
+                    worst_sum = cur_sum
+                    max_range = (cur_start, i)
+                if cur_len > max_len:
+                    max_len = cur_len
+            else:
+                cur_len = 0
+                cur_sum = 0.0
+                cur_start = None
+        return max_len, worst_sum, max_range
+
+    max_loss_len, worst_loss_sum, loss_range = loss_streak_info(trades, key="net_R")
+    loss_range_time = None
+    if loss_range[0] is not None:
+        start_idx = trades[loss_range[0]].get("entry_idx", 0)
+        end_idx = trades[loss_range[1]].get("entry_idx", 0)
+        if 0 <= start_idx < len(df) and 0 <= end_idx < len(df):
+            t1 = pd.to_datetime(df.loc[start_idx, "timestamp"], utc=True).tz_convert("Asia/Shanghai")
+            t2 = pd.to_datetime(df.loc[end_idx, "timestamp"], utc=True).tz_convert("Asia/Shanghai")
+            loss_range_time = f"{t1.strftime('%Y-%m-%d %H:%M:%S %Z')} ~ {t2.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+
     last_entries = []
     if trades:
         for t in trades[-5:]:
@@ -148,6 +185,9 @@ def main():
     print(f"最大R: {summary['max_R']:.3f}, 最小R: {summary['min_R']:.3f}")
     print(f"平均盈利R: {summary['avg_win_R']:.3f}, 平均亏损R: {summary['avg_loss_R']:.3f}")
     print(f"盈亏比: {summary['win_loss_ratio']:.3f}")
+    if max_loss_len > 0:
+        print(f"最长连亏: {max_loss_len} 笔，净R合计 {worst_loss_sum:.3f}"
+              + (f"，时间段: {loss_range_time}" if loss_range_time else ""))
     if last_entries:
         print("最近5次开仓时间(北京):", "; ".join(last_entries))
 
