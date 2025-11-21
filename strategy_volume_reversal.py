@@ -20,7 +20,7 @@ def detect_signals(
     df: pd.DataFrame,
     quiet_lookback: int = 20,
     vol_spike_mult: float = 2.0,
-    quiet_max_mult: float = 1.2,
+    quiet_max_mult: float = 0.0,
     body_mult: float = 1.5,
     sl_mode: str = "outer_bar",
 ) -> List[Dict]:
@@ -42,7 +42,8 @@ def detect_signals(
         vol_max_prev = prices[prev_slice, 4].max()
         body_mean_prev = bodies[prev_slice].mean()
 
-        if vol_max_prev > vol_mean_prev * quiet_max_mult:
+        # quiet_max_mult <=0 表示不限制安静期最大量
+        if quiet_max_mult > 0 and vol_max_prev > vol_mean_prev * quiet_max_mult:
             continue
         volume_i = prices[i, 4]
         body_i = bodies[i]

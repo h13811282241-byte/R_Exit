@@ -26,7 +26,7 @@ def parse_args():
 
     p.add_argument("--quiet_lookback", type=int, default=20)
     p.add_argument("--vol_spike_mult", type=float, default=2.0)
-    p.add_argument("--quiet_max_mult", type=float, default=1.2)
+    p.add_argument("--quiet_max_mult", type=float, default=0.0, help="安静期最大量倍数，<=0 表示不限制，默认不限制")
     p.add_argument("--body_mult", type=float, default=1.5)
     p.add_argument("--max_holding_bars", type=int, default=20)
     p.add_argument("--cooldown_bars", type=int, default=20)
