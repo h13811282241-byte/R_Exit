@@ -43,7 +43,12 @@ def parse_args():
 
 def load_klines(args) -> pd.DataFrame:
     if args.use_local_csv:
-        return pd.read_csv(args.use_local_csv)
+        df = pd.read_csv(args.use_local_csv)
+        required = {"timestamp", "open", "high", "low", "close", "volume"}
+        has_required = required.issubset(set(df.columns))
+        if not has_required:
+            raise ValueError(f"本地 CSV 缺少必需列: {required}, 实际列: {df.columns.tolist()}")
+        return df
     if not args.symbol or not args.start or not args.end:
         raise ValueError("未提供 symbol/start/end，且未指定 use_local_csv")
     df = download_klines(
