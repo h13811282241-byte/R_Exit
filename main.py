@@ -43,7 +43,12 @@ def parse_args():
     p.add_argument("--plot", action="store_true", help="生成图表")
     p.add_argument("--plot_dir", default="plots_out")
     p.add_argument("--lower_interval", default="", help="下行周期用于判定同根TP/SL先后，例如 1m，留空禁用")
-    p.add_argument("--us_session_only", action="store_true", help="仅美股盘中(美东时间09:30-16:00)的数据")
+    p.add_argument(
+        "--us_session_mode",
+        choices=["all", "us_only", "non_us"],
+        default="all",
+        help="美股交易时段过滤：all 不过滤；us_only 仅09:30-16:00(ET)；non_us 仅盘前/盘后",
+    )
     return p.parse_args()
 
 
@@ -69,11 +74,17 @@ def load_klines(args) -> pd.DataFrame:
     return df
 
 
-def filter_us_session(df: pd.DataFrame) -> pd.DataFrame:
+def filter_us_session(df: pd.DataFrame, mode: str) -> pd.DataFrame:
+    if mode == "all":
+        return df
     ts = pd.to_datetime(df["timestamp"], utc=True)
     ny = ts.tz_convert("America/New_York")
     mask = (ny.dt.time >= time(9, 30)) & (ny.dt.time < time(16, 0))
-    return df.loc[mask].reset_index(drop=True)
+    if mode == "us_only":
+        return df.loc[mask].reset_index(drop=True)
+    if mode == "non_us":
+        return df.loc[~mask].reset_index(drop=True)
+    return df
 
 
 def parse_interval_seconds(interval: str) -> int:
@@ -100,10 +111,10 @@ def main():
             end_time=args.end,
             market_type=args.market_type,
         )
-    if args.us_session_only:
-        df = filter_us_session(df)
+    if args.us_session_mode != "all":
+        df = filter_us_session(df, args.us_session_mode)
         if lower_df is not None:
-            lower_df = filter_us_session(lower_df)
+            lower_df = filter_us_session(lower_df, args.us_session_mode)
 
     signals = detect_signals(
         df,
