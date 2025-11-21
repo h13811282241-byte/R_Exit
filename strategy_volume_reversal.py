@@ -27,6 +27,7 @@ def detect_signals(
     sl_offset_ratio: float = 1.0,
     tp_ref: str = "prev",  # "signal" 或 "prev"
     sl_ref: str = "prev",
+    invert_side: bool = False,
 ) -> List[Dict]:
     """
     返回信号列表：idx/side/entry/sl/tp/mid/height
@@ -68,6 +69,8 @@ def detect_signals(
             continue
 
         side = "short" if close_i > open_i else "long"
+        if invert_side:
+            side = "long" if side == "short" else "short"
         height_i = high_i - low_i
         if height_i <= 0:
             continue

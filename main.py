@@ -34,6 +34,7 @@ def parse_args():
     p.add_argument("--cooldown_bars", type=int, default=20)
     p.add_argument("--tp_ref", choices=["signal", "prev"], default="prev", help="止盈距离参考的K线：signal 当前信号K，prev 前一根K（默认）")
     p.add_argument("--sl_ref", choices=["signal", "prev"], default="prev", help="止损距离参考的K线：signal 当前信号K，prev 前一根K（默认）")
+    p.add_argument("--invert_side", action="store_true", help="反转方向：原本做多改做空，原本做空改做多")
 
     p.add_argument("--plot", action="store_true", help="生成图表")
     p.add_argument("--plot_dir", default="plots_out")
@@ -76,6 +77,7 @@ def main():
         sl_offset_ratio=args.sl_offset_ratio,
         tp_ref=args.tp_ref,
         sl_ref=args.sl_ref,
+        invert_side=args.invert_side,
     )
     trades = simulate_trades(
         df,
