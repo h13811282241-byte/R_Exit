@@ -9,7 +9,15 @@ import numpy as np
 import pandas as pd
 
 
-def summarize_trades(trades: List[Dict]) -> Dict:
+def _extract_R(t: Dict, key: str) -> float:
+    if key in t and t[key] is not None and not math.isnan(t[key]):
+        return float(t[key])
+    if "R" in t and t["R"] is not None and not math.isnan(t["R"]):
+        return float(t["R"])
+    return math.nan
+
+
+def summarize_trades(trades: List[Dict], key: str = "net_R") -> Dict:
     if not trades:
         return {
             "num_trades": 0,
@@ -23,7 +31,8 @@ def summarize_trades(trades: List[Dict]) -> Dict:
             "expectancy_R": 0.0,
             "win_loss_ratio": 0.0,
         }
-    R_vals = [t["R"] for t in trades if t["R"] is not None and not math.isnan(t["R"])]
+    R_vals = [_extract_R(t, key) for t in trades]
+    R_vals = [r for r in R_vals if not math.isnan(r)]
     if not R_vals:
         return {
             "num_trades": len(trades),
@@ -63,12 +72,12 @@ def summarize_trades(trades: List[Dict]) -> Dict:
     return summary
 
 
-def equity_curve(trades: List[Dict]) -> pd.DataFrame:
+def equity_curve(trades: List[Dict], key: str = "net_R") -> pd.DataFrame:
     curve = []
     cum_R = 0.0
     for i, t in enumerate(trades, start=1):
-        R = t["R"]
-        if R is None or math.isnan(R):
+        R = _extract_R(t, key)
+        if math.isnan(R):
             R = 0.0
         cum_R += R
         curve.append({"trade_index": i, "cumulative_R": cum_R})
