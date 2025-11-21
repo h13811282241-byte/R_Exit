@@ -34,7 +34,8 @@ def detect_signals(
     _validate_df(df)
     if quiet_lookback <= 0:
         raise ValueError("quiet_lookback 必须 > 0")
-    tp_ratio = max(0.0, min(1.0, tp_ratio))
+    # tp_ratio/sl_offset_ratio 允许大于 1，表示超出一倍K高
+    tp_ratio = max(0.0, tp_ratio)
     sl_offset_ratio = max(0.0, sl_offset_ratio)
     if tp_ref not in {"signal", "prev"}:
         tp_ref = "prev"
