@@ -147,6 +147,13 @@ def main():
     summary = summarize_trades(trades)
     eq = equity_curve(trades)
 
+    last_entries = []
+    if trades:
+        for t in trades[-5:]:
+            idx = t.get("entry_idx", 0)
+            if 0 <= idx < len(df):
+                last_entries.append(str(df.loc[idx, "timestamp"]))
+
     print("==== 回测结果 ====")
     print(f"交易笔数: {summary['num_trades']}")
     print(f"胜率: {summary['win_rate']*100:.2f}%")
@@ -154,6 +161,8 @@ def main():
     print(f"最大R: {summary['max_R']:.3f}, 最小R: {summary['min_R']:.3f}")
     print(f"平均盈利R: {summary['avg_win_R']:.3f}, 平均亏损R: {summary['avg_loss_R']:.3f}")
     print(f"盈亏比: {summary['win_loss_ratio']:.3f}")
+    if last_entries:
+        print("最近5次开仓时间:", "; ".join(last_entries))
 
     if args.plot:
         out_dir = Path(args.plot_dir)
