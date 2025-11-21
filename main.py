@@ -57,6 +57,10 @@ def main():
     args = parse_args()
     df = load_klines(args)
 
+    # 调试：输出前 5 行，便于确认数据获取正常
+    print("前 5 行 K 线数据:")
+    print(df.head())
+
     signals = detect_signals(
         df,
         quiet_lookback=args.quiet_lookback,
