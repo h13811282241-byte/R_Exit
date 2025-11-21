@@ -45,6 +45,8 @@ def parse_args():
     p.add_argument("--R_target", type=float, default=3.0)
     p.add_argument("--k_trail", type=float, default=2.0)
     p.add_argument("--fee_side", type=float, default=0.000248, help="单边手续费比例，默认 0.0248%")
+    p.add_argument("--stop_loss_streak", type=int, default=0, help="连亏达到此笔数后停止开仓，0 表示不启用")
+    p.add_argument("--stop_duration_days", type=int, default=0, help="连亏触发后休息的天数")
 
     # 绘图
     p.add_argument("--plot", action="store_true", help="生成图表")
@@ -129,6 +131,8 @@ def main():
         lower_df=lower_df,
         upper_interval_sec=parse_interval_seconds(args.interval),
         lower_interval_sec=parse_interval_seconds(args.lower_interval) if args.lower_interval else 60,
+        stop_loss_streak=args.stop_loss_streak,
+        stop_duration_days=args.stop_duration_days,
     )
     summary = summarize_trades(trades)
     eq = equity_curve(trades)

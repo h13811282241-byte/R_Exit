@@ -125,6 +125,8 @@ def simulate_trades(
     lower_df: Optional[pd.DataFrame] = None,
     upper_interval_sec: int = 3600,
     lower_interval_sec: int = 60,
+    stop_loss_streak: int = 0,
+    stop_duration_days: int = 0,
 ) -> List[Dict]:
     """
     固定 TP (R_target*ATR*k_sl) + 移动止损 (k_trail*ATR)
@@ -146,6 +148,8 @@ def simulate_trades(
     trades: List[Dict] = []
     last_index = len(df) - 1
     fee_round = fee_side * 2.0
+    block_until = None
+    loss_streak = 0
 
     def resolve_conflict(side: str, sl: float, tp: float, start_ts, end_ts):
         if lower_data is None:
@@ -173,6 +177,9 @@ def simulate_trades(
     for sig in signals:
         idx = sig["idx"]
         if idx >= last_index:
+            continue
+        ts_entry = ts_upper[idx]
+        if block_until is not None and ts_entry < block_until:
             continue
         side = sig["side"]
         entry = sig["entry"]
@@ -260,4 +267,12 @@ def simulate_trades(
                 "risk_pct": risk_pct,
             }
         )
+        # 连亏控制
+        if net_R < 0:
+            loss_streak += 1
+        else:
+            loss_streak = 0
+        if stop_loss_streak > 0 and stop_duration_days > 0 and loss_streak >= stop_loss_streak:
+            block_until = ts_upper[exit_idx] + pd.Timedelta(days=stop_duration_days)
+            loss_streak = 0
     return trades
