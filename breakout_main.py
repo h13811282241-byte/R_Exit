@@ -47,6 +47,8 @@ def parse_args():
     p.add_argument("--fee_side", type=float, default=0.000248, help="单边手续费比例，默认 0.0248%")
     p.add_argument("--stop_loss_streak", type=int, default=0, help="连亏达到此笔数后停止开仓，0 表示不启用")
     p.add_argument("--stop_duration_days", type=int, default=0, help="连亏触发后休息的天数")
+    p.add_argument("--initial_capital", type=float, default=7000.0, help="复利计算初始资金，默认7000")
+    p.add_argument("--risk_perc", type=float, default=0.02, help="每笔风险占用资金比例，默认2%")
 
     # 绘图
     p.add_argument("--plot", action="store_true", help="生成图表")
@@ -79,6 +81,21 @@ def filter_us_session(df: pd.DataFrame, mode: str) -> pd.DataFrame:
     if mode == "non_us":
         return df.loc[~mask].reset_index(drop=True)
     return df
+
+
+def compound_equity(trades, initial_capital: float, risk_perc: float) -> dict:
+    capital = initial_capital
+    peak = capital
+    max_dd = 0.0
+    for t in trades:
+        r = t.get("net_R", t.get("R", 0.0))
+        if r is None or pd.isna(r):
+            r = 0.0
+        capital *= (1 + risk_perc * r)
+        peak = max(peak, capital)
+        dd = (peak - capital) / peak if peak > 0 else 0.0
+        max_dd = max(max_dd, dd)
+    return {"final": capital, "max_drawdown": max_dd}
 
 
 def load_klines(args, interval: str) -> pd.DataFrame:
@@ -136,6 +153,7 @@ def main():
     )
     summary = summarize_trades(trades)
     eq = equity_curve(trades)
+    comp = compound_equity(trades, args.initial_capital, args.risk_perc)
 
     def loss_streak_info(trades, key="net_R"):
         max_len = 0
@@ -192,6 +210,7 @@ def main():
     if max_loss_len > 0:
         print(f"最长连亏: {max_loss_len} 笔，净R合计 {worst_loss_sum:.3f}"
               + (f"，时间段: {loss_range_time}" if loss_range_time else ""))
+    print(f"复利最终资金: {comp['final']:.2f} (初始 {args.initial_capital}, 每笔风险 {args.risk_perc*100:.2f}% ), 最大回撤: {comp['max_drawdown']*100:.2f}%")
     if last_entries:
         print("最近5次开仓时间(北京):", "; ".join(last_entries))
 
