@@ -34,6 +34,9 @@ def parse_args():
     p.add_argument("--cooldown_bars", type=int, default=20)
     p.add_argument("--tp_ref", choices=["signal", "prev"], default="prev", help="止盈距离参考的K线：signal 当前信号K，prev 前一根K（默认）")
     p.add_argument("--sl_ref", choices=["signal", "prev"], default="prev", help="止损距离参考的K线：signal 当前信号K，prev 前一根K（默认）")
+    p.add_argument("--cooldown_mode", choices=["bars", "vol"], default="bars", help="冷静期模式：bars 固定根数，vol 需降温")
+    p.add_argument("--cooldown_vol_mult", type=float, default=1.0, help="冷静期降温阈值，vol<=均量*该倍数才算降温")
+    p.add_argument("--cooldown_quiet_bars", type=int, default=3, help="降温需连续满足的根数 (cooldown_mode=vol)")
     p.add_argument("--invert_side", action="store_true", help="反转方向：原本做多改做空，原本做空改做多")
 
     p.add_argument("--plot", action="store_true", help="生成图表")
@@ -67,10 +70,6 @@ def main():
     args = parse_args()
     df = load_klines(args)
 
-    # 调试：输出前 5 行，便于确认数据获取正常
-    print("前 5 行 K 线数据:")
-    print(df.head())
-
     signals = detect_signals(
         df,
         quiet_lookback=args.quiet_lookback,
@@ -89,6 +88,10 @@ def main():
         signals,
         max_holding_bars=args.max_holding_bars,
         cooldown_bars=args.cooldown_bars,
+        cooldown_mode=args.cooldown_mode,
+        cooldown_vol_mult=args.cooldown_vol_mult,
+        cooldown_quiet_bars=args.cooldown_quiet_bars,
+        quiet_lookback=args.quiet_lookback,
     )
     summary = summarize_trades(trades)
     eq = equity_curve(trades)

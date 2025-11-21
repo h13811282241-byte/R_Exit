@@ -117,22 +117,50 @@ def simulate_trades(
     signals: List[Dict],
     max_holding_bars: int = 20,
     cooldown_bars: int = 20,
+    cooldown_mode: str = "bars",  # "bars" 固定根数，"vol" 需降温
+    cooldown_vol_mult: float = 1.0,
+    cooldown_quiet_bars: int = 3,
+    quiet_lookback: int = 20,
 ) -> List[Dict]:
     """
     基于信号在 K 线模拟交易，返回每笔交易明细。
     """
     _validate_df(df)
     prices = df[["high", "low", "close"]].to_numpy()
+    volumes = df["volume"].to_numpy()
     trades: List[Dict] = []
-    ignore_until = -1
+    ignore_until = -1  # 仅用于 cooldown_mode="bars"
+    last_sl_exit_idx: Optional[int] = None  # 用于 cooldown_mode="vol"
     last_index = len(df) - 1
+
+    def has_cooled(signal_idx: int) -> bool:
+        """
+        检查信号前是否出现连续 cooldown_quiet_bars 根“降温”K线：
+        每根的 volume <= 前 quiet_lookback 根均量 * cooldown_vol_mult
+        """
+        if signal_idx - cooldown_quiet_bars < 0:
+            return False
+        for j in range(signal_idx - cooldown_quiet_bars, signal_idx):
+            start = max(0, j - quiet_lookback)
+            if j <= start:
+                return False
+            mean_vol = volumes[start:j].mean()
+            if mean_vol <= 0:
+                return False
+            if volumes[j] > mean_vol * cooldown_vol_mult:
+                return False
+        return True
 
     for sig in signals:
         idx = sig["idx"]
         if idx >= last_index:
             break
-        if idx <= ignore_until:
-            continue
+        if cooldown_mode == "bars":
+            if idx <= ignore_until:
+                continue
+        elif cooldown_mode == "vol":
+            if last_sl_exit_idx is not None and not has_cooled(idx):
+                continue
 
         side = sig["side"]
         entry = sig["entry"]
@@ -192,4 +220,9 @@ def simulate_trades(
                 "R": R,
             }
         )
+        if outcome == "sl":
+            if cooldown_mode == "bars":
+                ignore_until = exit_idx + cooldown_bars
+            elif cooldown_mode == "vol":
+                last_sl_exit_idx = exit_idx
     return trades
