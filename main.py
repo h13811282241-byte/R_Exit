@@ -78,7 +78,8 @@ def filter_us_session(df: pd.DataFrame, mode: str) -> pd.DataFrame:
     if mode == "all":
         return df
     ts = pd.to_datetime(df["timestamp"], utc=True)
-    ny = ts.tz_convert("America/New_York")
+    ts = ts.dt.tz_localize("UTC")
+    ny = ts.dt.tz_convert("America/New_York")
     mask = (ny.dt.time >= time(9, 30)) & (ny.dt.time < time(16, 0))
     if mode == "us_only":
         return df.loc[mask].reset_index(drop=True)
