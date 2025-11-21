@@ -24,6 +24,7 @@ def detect_signals(
     body_mult: float = 1.5,
     sl_mode: str = "outer_bar",
     tp_ratio: float = 0.5,
+    sl_offset_ratio: float = 1.0,
 ) -> List[Dict]:
     """
     返回信号列表：idx/side/entry/sl/tp/mid/height
@@ -32,6 +33,7 @@ def detect_signals(
     if quiet_lookback <= 0:
         raise ValueError("quiet_lookback 必须 > 0")
     tp_ratio = max(0.0, min(1.0, tp_ratio))
+    sl_offset_ratio = max(0.0, sl_offset_ratio)
 
     prices = df[["open", "high", "low", "close", "volume"]].to_numpy()
     bodies = np.abs(prices[:, 3] - prices[:, 0])
@@ -65,7 +67,7 @@ def detect_signals(
             continue
 
         if sl_mode == "outer_bar":
-            sl = low_i - height_i if side == "long" else high_i + height_i
+            sl = low_i - height_i * sl_offset_ratio if side == "long" else high_i + height_i * sl_offset_ratio
         else:
             raise ValueError(f"未知 sl_mode: {sl_mode}")
 

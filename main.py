@@ -29,6 +29,7 @@ def parse_args():
     p.add_argument("--quiet_max_mult", type=float, default=0.0, help="安静期最大量倍数，<=0 表示不限制，默认不限制")
     p.add_argument("--body_mult", type=float, default=1.5)
     p.add_argument("--tp_ratio", type=float, default=0.5, help="止盈比例：0-1，0.5 表示 K 线中位价")
+    p.add_argument("--sl_offset_ratio", type=float, default=1.0, help="止损偏移倍数，1.0=K 高度，0.5=半个K高度")
     p.add_argument("--max_holding_bars", type=int, default=20)
     p.add_argument("--cooldown_bars", type=int, default=20)
 
@@ -70,6 +71,7 @@ def main():
         body_mult=args.body_mult,
         sl_mode="outer_bar",
         tp_ratio=args.tp_ratio,
+        sl_offset_ratio=args.sl_offset_ratio,
     )
     trades = simulate_trades(
         df,
