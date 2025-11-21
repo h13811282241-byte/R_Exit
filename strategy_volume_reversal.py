@@ -121,6 +121,9 @@ def simulate_trades(
     cooldown_vol_mult: float = 1.0,
     cooldown_quiet_bars: int = 3,
     quiet_lookback: int = 20,
+    lower_df: Optional[pd.DataFrame] = None,
+    upper_interval_sec: int = 300,
+    lower_interval_sec: int = 60,
 ) -> List[Dict]:
     """
     基于信号在 K 线模拟交易，返回每笔交易明细。
@@ -128,10 +131,42 @@ def simulate_trades(
     _validate_df(df)
     prices = df[["high", "low", "close"]].to_numpy()
     volumes = df["volume"].to_numpy()
+    ts_upper = pd.to_datetime(df["timestamp"]).to_numpy()
+    lower_data = None
+    if lower_df is not None:
+        lower_data = {
+            "ts": pd.to_datetime(lower_df["timestamp"]).to_numpy(),
+            "high": lower_df["high"].to_numpy(),
+            "low": lower_df["low"].to_numpy(),
+        }
     trades: List[Dict] = []
     ignore_until = -1  # 仅用于 cooldown_mode="bars"
     last_sl_exit_idx: Optional[int] = None  # 用于 cooldown_mode="vol"
     last_index = len(df) - 1
+
+    def resolve_conflict_with_lower(side: str, start_ts, end_ts):
+        if lower_data is None:
+            return "sl", None  # 默认保守
+        ts = lower_data["ts"]
+        mask = (ts >= start_ts) & (ts < end_ts)
+        if not mask.any():
+            return "sl", None
+        highs = lower_data["high"][mask]
+        lows = lower_data["low"][mask]
+        for h, l in zip(highs, lows):
+            if side == "long":
+                hit_sl = l <= sl
+                hit_tp = h >= tp
+            else:
+                hit_sl = h >= sl
+                hit_tp = l <= tp
+            if hit_sl and not hit_tp:
+                return "sl", sl
+            if hit_tp and not hit_sl:
+                return "tp", tp
+            if hit_sl and hit_tp:
+                return "sl", sl  # 同一子K 默认先止损
+        return "sl", None
 
     def has_cooled(signal_idx: int) -> bool:
         """
@@ -182,10 +217,19 @@ def simulate_trades(
                 hit_tp = low_b <= tp
 
             if hit_sl:
+                if hit_tp:
+                    # 同一根同时触及，尝试用下级周期判断先后
+                    start_ts = ts_upper[idx]
+                    end_ts = start_ts + pd.Timedelta(seconds=upper_interval_sec)
+                    sub_outcome, sub_price = resolve_conflict_with_lower(side, start_ts, end_ts)
+                    outcome = sub_outcome
+                    exit_price = sub_price if sub_price is not None else sl
+                else:
+                    outcome = "sl"
+                    exit_price = sl
                 exit_idx = bar
-                exit_price = sl
-                outcome = "sl"
-                ignore_until = bar + cooldown_bars
+                if outcome == "sl":
+                    ignore_until = bar + cooldown_bars
                 break
             if hit_tp:
                 exit_idx = bar

@@ -41,6 +41,7 @@ def parse_args():
 
     p.add_argument("--plot", action="store_true", help="生成图表")
     p.add_argument("--plot_dir", default="plots_out")
+    p.add_argument("--lower_interval", default="", help="下行周期用于判定同根TP/SL先后，例如 1m，留空禁用")
     return p.parse_args()
 
 
@@ -66,9 +67,30 @@ def load_klines(args) -> pd.DataFrame:
     return df
 
 
+def parse_interval_seconds(interval: str) -> int:
+    unit = interval[-1].lower()
+    value = int(interval[:-1])
+    if unit == "m":
+        return value * 60
+    if unit == "h":
+        return value * 3600
+    if unit == "d":
+        return value * 86400
+    raise ValueError(f"不支持的周期 {interval}")
+
+
 def main():
     args = parse_args()
     df = load_klines(args)
+    lower_df = None
+    if args.lower_interval:
+        lower_df = download_klines(
+            symbol=args.symbol,
+            interval=args.lower_interval,
+            start_time=args.start,
+            end_time=args.end,
+            market_type=args.market_type,
+        )
 
     signals = detect_signals(
         df,
@@ -92,6 +114,9 @@ def main():
         cooldown_vol_mult=args.cooldown_vol_mult,
         cooldown_quiet_bars=args.cooldown_quiet_bars,
         quiet_lookback=args.quiet_lookback,
+        lower_df=lower_df,
+        upper_interval_sec=parse_interval_seconds(args.interval),
+        lower_interval_sec=parse_interval_seconds(args.lower_interval) if args.lower_interval else 60,
     )
     summary = summarize_trades(trades)
     eq = equity_curve(trades)
