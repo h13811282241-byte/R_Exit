@@ -152,7 +152,9 @@ def main():
         for t in trades[-5:]:
             idx = t.get("entry_idx", 0)
             if 0 <= idx < len(df):
-                last_entries.append(str(df.loc[idx, "timestamp"]))
+                ts = pd.to_datetime(df.loc[idx, "timestamp"], utc=True)
+                ts = ts.tz_convert("Asia/Shanghai")
+                last_entries.append(ts.strftime("%Y-%m-%d %H:%M:%S %Z"))
 
     print("==== 回测结果 ====")
     print(f"交易笔数: {summary['num_trades']}")
