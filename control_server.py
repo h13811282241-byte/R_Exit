@@ -9,16 +9,35 @@ import time
 import signal
 import subprocess
 import threading
+import uuid
 from collections import deque
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from flask import Flask, jsonify, request, render_template
+import pandas as pd
+from flask import Flask, jsonify, request, render_template, send_from_directory
+from werkzeug.utils import secure_filename
+
+# 让 order_grouper 包可以被导入
+ORDER_GROUPER_SRC = Path(__file__).resolve().parent / "order_grouper2"
+if ORDER_GROUPER_SRC.exists() and str(ORDER_GROUPER_SRC) not in sys.path:
+    sys.path.insert(0, str(ORDER_GROUPER_SRC))
+from order_grouper.io_utils import read_trades, write_orders
+from order_grouper.schemas import GroupConfig
+from order_grouper.grouping import group_trades_into_orders
 
 BASE_DIR = Path(__file__).resolve().parent
 SCRIPT_PATH = BASE_DIR / "r_exit_manager.py"
 
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
+
+# 订单撮合文件目录（可用环境变量 ORDER_GROUPER_BASE 调整）
+ORDER_GROUPER_BASE = Path(os.environ.get("ORDER_GROUPER_BASE", BASE_DIR / "order_data"))
+ORDER_UPLOAD_DIR = ORDER_GROUPER_BASE / "uploads"
+ORDER_OUTPUT_DIR = ORDER_GROUPER_BASE / "outputs"
+for path in (ORDER_UPLOAD_DIR, ORDER_OUTPUT_DIR):
+    path.mkdir(parents=True, exist_ok=True)
+ALLOWED_UPLOAD_EXTS = {"csv", "tsv", "txt", "xls", "xlsx"}
 
 _state_lock = threading.Lock()
 _worker: Dict[str, Any] = {
@@ -152,6 +171,90 @@ def status():
             "logs": logs,
         }
     )
+
+
+def _parse_optional_int(value: Optional[str]) -> Optional[int]:
+    if value is None or str(value).strip() == "":
+        return None
+    return int(value)
+
+
+@app.post("/api/order-group")
+def order_group():
+    """
+    上传交割成交表（CSV/TSV/Excel），按时间窗口合并为订单，返回汇总/明细下载链接。
+    可通过环境变量 ORDER_GROUPER_BASE 调整存储目录。
+    """
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify({"error": "请上传文件"}), 400
+
+    safe_name = secure_filename(file.filename) or "upload.csv"
+    ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else ""
+    if ext not in ALLOWED_UPLOAD_EXTS:
+        return jsonify({"error": f"不支持的文件类型: {ext}"}), 400
+
+    window_seconds = float(request.form.get("windowSeconds", 2))
+    dt_format = request.form.get("dtFormat") or None
+    round_price = _parse_optional_int(request.form.get("roundPrice"))
+    round_qty = _parse_optional_int(request.form.get("roundQty"))
+    round_money = _parse_optional_int(request.form.get("roundMoney"))
+
+    unique_prefix = f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    upload_path = ORDER_UPLOAD_DIR / f"{unique_prefix}_{safe_name}"
+    file.save(upload_path)
+
+    temp_csv = None
+    input_path = upload_path
+    try:
+        if ext in {"xls", "xlsx"}:
+            temp_csv = ORDER_UPLOAD_DIR / f"{unique_prefix}_{Path(safe_name).stem}.csv"
+            df_excel = pd.read_excel(upload_path)
+            df_excel.to_csv(temp_csv, index=False)
+            input_path = temp_csv
+
+        cfg = GroupConfig(
+            window_seconds=window_seconds,
+            round_price=round_price,
+            round_qty=round_qty,
+            round_money=round_money,
+        )
+        trades = read_trades(str(input_path), dt_format=dt_format, tz="UTC")
+        orders, detailed = group_trades_into_orders(trades, cfg)
+
+        base_stem = Path(safe_name).stem
+        orders_path = ORDER_OUTPUT_DIR / f"{unique_prefix}_{base_stem}_orders.csv"
+        detail_path = ORDER_OUTPUT_DIR / f"{unique_prefix}_{base_stem}_detailed.csv"
+        write_orders(orders, str(orders_path))
+        detailed.to_csv(detail_path, index=False, encoding="utf-8-sig")
+
+        return (
+            jsonify(
+                {
+                    "message": "处理成功",
+                    "ordersUrl": f"/downloads/{orders_path.name}",
+                    "detailUrl": f"/downloads/{detail_path.name}",
+                    "storedAt": str(ORDER_OUTPUT_DIR),
+                }
+            ),
+            201,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": "处理失败", "detail": str(exc)}), 500
+    finally:
+        if temp_csv and temp_csv.exists():
+            temp_csv.unlink(missing_ok=True)
+
+
+@app.get("/downloads/<path:filename>")
+def download_file(filename: str):
+    safe_name = secure_filename(filename)
+    target = ORDER_OUTPUT_DIR / safe_name
+    if not target.exists():
+        return jsonify({"error": "文件不存在"}), 404
+    return send_from_directory(ORDER_OUTPUT_DIR, safe_name, as_attachment=True)
 
 
 if __name__ == "__main__":
