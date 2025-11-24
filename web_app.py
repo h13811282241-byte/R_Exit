@@ -255,18 +255,34 @@ def main():
     auto_lower = st.sidebar.checkbox("无下行周期时自动下载1m判顺序", value=False, key="auto_lower_global")
     lower_market = st.sidebar.selectbox("下行数据市场类型", ["spot", "usdt_perp", "coin_perp", "usdc_perp"], index=1, key="lower_market")
     lower_symbol = st.sidebar.text_input("下行数据交易对", "ETHUSDT", key="lower_symbol")
-    lower_df = None
-    if lower_interval or auto_lower:
+    st.session_state.setdefault("lower_df", None)
+    st.session_state.setdefault("lower_params", None)
+    lower_df = st.session_state.get("lower_df")
+    need_lower = lower_interval or auto_lower
+    if need_lower:
         start_ts = pd.to_datetime(df["timestamp"].iloc[0])
         end_ts = pd.to_datetime(df["timestamp"].iloc[-1])
         li = lower_interval if lower_interval else "1m"
-        lower_df = download_binance_klines(
-            lower_symbol,
-            li,
-            start_ts.strftime("%Y-%m-%d %H:%M:%S"),
-            end_ts.strftime("%Y-%m-%d %H:%M:%S"),
-            market_type=lower_market,
-        )
+        params = (lower_symbol, li, lower_market, start_ts, end_ts)
+        if st.sidebar.button("加载下行数据", key="load_lower_global"):
+            try:
+                lower_df = download_binance_klines(
+                    lower_symbol,
+                    li,
+                    start_ts.strftime("%Y-%m-%d %H:%M:%S"),
+                    end_ts.strftime("%Y-%m-%d %H:%M:%S"),
+                    market_type=lower_market,
+                )
+                st.session_state["lower_df"] = lower_df
+                st.session_state["lower_params"] = params
+                st.success(f"下行数据已加载: {len(lower_df)} 行")
+            except Exception as e:
+                st.error(f"下行数据下载失败: {e}")
+        # 如果参数变了，清空缓存
+        if st.session_state.get("lower_params") != params:
+            st.session_state["lower_df"] = None
+            st.session_state["lower_params"] = None
+            lower_df = None
 
     # 估计主周期秒数
     ts_main = pd.to_datetime(df["timestamp"])
@@ -281,14 +297,14 @@ def main():
             df,
             lower_df=lower_df,
             upper_interval_sec=upper_interval_sec,
-            lower_interval_sec=int(pd.to_datetime(lower_df["timestamp"]).diff().dt.total_seconds().median()) if lower_df is not None else 60,
+            lower_interval_sec=int(pd.to_datetime(lower_df["timestamp"]).diff().dt.total_seconds().median()) if lower_df is not None else 0,
         )
     elif strategy == "Alligator":
         trades_df, summary = run_alligator(
             df,
             lower_df=lower_df,
             upper_interval_sec=upper_interval_sec,
-            lower_interval_sec=int(pd.to_datetime(lower_df["timestamp"]).diff().dt.total_seconds().median()) if lower_df is not None else 60,
+            lower_interval_sec=int(pd.to_datetime(lower_df["timestamp"]).diff().dt.total_seconds().median()) if lower_df is not None else 0,
         )
     else:
         trades_df, summary = run_breakout(df)
