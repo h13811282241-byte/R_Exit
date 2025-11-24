@@ -18,7 +18,7 @@ from visualization import plot_price_with_signals, plot_equity_curve
 
 def parse_args():
     p = argparse.ArgumentParser(description="趋势突破策略回测")
-    p.add_argument("--symbol", required=True, help="交易对，例如 ETHUSDT")
+    p.add_argument("--symbol", required=True, default="ETHUSDT", help="交易对，例如 ETHUSDT")
     p.add_argument("--interval", default="1h", help="主周期，默认 1h")
     p.add_argument("--start", required=True, help="开始时间 UTC，例如 2025-01-01 00:00:00")
     p.add_argument("--end", required=True, help="结束时间 UTC")
