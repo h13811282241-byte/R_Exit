@@ -269,6 +269,8 @@ def simulate_trades(
                 "signal_idx": idx,
                 "entry_idx": idx,
                 "exit_idx": exit_idx,
+                "entry_time": str(df.loc[idx, "timestamp"]),
+                "exit_time": str(df.loc[exit_idx, "timestamp"]),
                 "side": side,
                 "entry": entry,
                 "sl": sl,

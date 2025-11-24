@@ -20,6 +20,10 @@ from backtest_engine import simulate_basic, summarize_trades
 def plot_price(df: pd.DataFrame, trades: pd.DataFrame):
     fig = go.Figure(data=[go.Candlestick(x=df["timestamp"], open=df["open"], high=df["high"], low=df["low"], close=df["close"])])
     if not trades.empty:
+        # 补全缺失的 entry_time
+        if "entry_time" not in trades.columns and "entry_idx" in trades.columns:
+            trades = trades.copy()
+            trades["entry_time"] = trades["entry_idx"].apply(lambda i: df.loc[i, "timestamp"] if 0 <= i < len(df) else None)
         longs = trades[trades["side"] == "long"]
         shorts = trades[trades["side"] == "short"]
         fig.add_trace(go.Scatter(x=longs["entry_time"], y=longs["entry"], mode="markers", marker=dict(color="green", symbol="triangle-up", size=10), name="Long entry"))
