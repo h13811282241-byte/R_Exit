@@ -290,6 +290,7 @@ def simulate_trades(
                 "fee_R": fee_R,
                 "net_R": net_R,
                 "risk_pct": risk_pct,
+                "risk_pct_abs": risk_pct,
             }
         )
         # 连亏控制
