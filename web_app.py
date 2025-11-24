@@ -38,14 +38,17 @@ def plot_equity(trades: pd.DataFrame):
 
 
 def load_data_ui():
+    if "data_df" not in st.session_state:
+        st.session_state["data_df"] = None
     source = st.sidebar.radio("数据来源", ["上传 CSV", "币安下载"])
-    df = None
+    df = st.session_state.get("data_df")
     if source == "上传 CSV":
         file = st.sidebar.file_uploader("上传 CSV (需包含 timestamp,open,high,low,close,volume)", type=["csv"])
         if file:
             with tempfile.NamedTemporaryFile(delete=False) as tmp:
                 tmp.write(file.read())
                 df = load_csv(tmp.name)
+                st.session_state["data_df"] = df
     else:
         symbol = st.sidebar.text_input("交易对", "ETHUSDT")
         interval = st.sidebar.text_input("周期(如 5m/15m/1h/4h)", "1h")
@@ -54,10 +57,11 @@ def load_data_ui():
         if st.sidebar.button("下载"):
             try:
                 df = download_binance_klines(symbol, interval, start, end, market_type="spot")
+                st.session_state["data_df"] = df
                 st.success(f"下载完成，{len(df)} 行")
             except Exception as e:
                 st.error(f"下载失败: {e}")
-    return df
+    return st.session_state.get("data_df")
 
 
 def run_rsi_divergence(df: pd.DataFrame):
