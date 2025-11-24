@@ -169,7 +169,7 @@ def run_alligator(df: pd.DataFrame, lower_df=None, upper_interval_sec: int = 0, 
     return trades_df, summary
 
 
-def run_breakout(df: pd.DataFrame):
+def run_breakout(df: pd.DataFrame, lower_fetch=None):
     st.header("趋势突破策略")
     with st.sidebar.form(key="breakout_form"):
         ema_span = st.number_input("EMA span", 10, 500, 100, key="br_ema")
@@ -185,35 +185,9 @@ def run_breakout(df: pd.DataFrame):
         fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f", key="br_fee")
         stop_loss_streak = st.number_input("连亏触发笔数", 0, 50, 0, key="br_streak")
         stop_duration_days = st.number_input("休息天数", 0, 365, 0, key="br_stop_days")
-        lower_interval = st.text_input("下行周期(如1m，可空)", "", key="br_lower")
-        auto_lower = st.checkbox("无下行周期时自动下载1m判顺序", value=False, key="br_auto_lower")
-        market_type = st.selectbox("下行市场类型", ["spot", "usdt_perp", "coin_perp", "usdc_perp"], index=1, key="br_mkt")
-        symbol_for_lower = st.text_input("用于下行数据的交易对", "ETHUSDT", key="br_symbol_lower")
         run = st.form_submit_button("运行回测", use_container_width=True)
     if not run:
         return None, None
-
-    lower_df = None
-    if lower_interval:
-        start_ts = pd.to_datetime(df["timestamp"].iloc[0])
-        end_ts = pd.to_datetime(df["timestamp"].iloc[-1])
-        lower_df = download_binance_klines(
-            symbol_for_lower,
-            lower_interval,
-            start_ts.strftime("%Y-%m-%d %H:%M:%S"),
-            end_ts.strftime("%Y-%m-%d %H:%M:%S"),
-            market_type=market_type,
-        )
-    elif auto_lower:
-        start_ts = pd.to_datetime(df["timestamp"].iloc[0])
-        end_ts = pd.to_datetime(df["timestamp"].iloc[-1])
-        lower_df = download_binance_klines(
-            symbol_for_lower,
-            "1m",
-            start_ts.strftime("%Y-%m-%d %H:%M:%S"),
-            end_ts.strftime("%Y-%m-%d %H:%M:%S"),
-            market_type=market_type,
-        )
 
     signals = detect_breakouts(
         df,
@@ -232,11 +206,12 @@ def run_breakout(df: pd.DataFrame):
         R_target=R_target,
         k_trail=k_trail,
         fee_side=fee_side,
-        lower_df=lower_df,
+        lower_df=None,
         upper_interval_sec=0,
         lower_interval_sec=60,
         stop_loss_streak=stop_loss_streak,
         stop_duration_days=stop_duration_days,
+        lower_fetch=lower_fetch,
     )
     trades_df = pd.DataFrame(trades)
     summary = summarize_trades(trades, key="net_R")
@@ -255,34 +230,27 @@ def main():
     auto_lower = st.sidebar.checkbox("无下行周期时自动下载1m判顺序", value=False, key="auto_lower_global")
     lower_market = st.sidebar.selectbox("下行数据市场类型", ["spot", "usdt_perp", "coin_perp", "usdc_perp"], index=1, key="lower_market")
     lower_symbol = st.sidebar.text_input("下行数据交易对", "ETHUSDT", key="lower_symbol")
-    st.session_state.setdefault("lower_df", None)
-    st.session_state.setdefault("lower_params", None)
-    lower_df = st.session_state.get("lower_df")
-    need_lower = lower_interval or auto_lower
-    if need_lower:
+
+    def build_lower_fetch():
+        if not (lower_interval or auto_lower):
+            return None
         start_ts = pd.to_datetime(df["timestamp"].iloc[0])
         end_ts = pd.to_datetime(df["timestamp"].iloc[-1])
         li = lower_interval if lower_interval else "1m"
-        params = (lower_symbol, li, lower_market, start_ts, end_ts)
-        if st.sidebar.button("加载下行数据", key="load_lower_global"):
-            try:
-                lower_df = download_binance_klines(
-                    lower_symbol,
-                    li,
-                    start_ts.strftime("%Y-%m-%d %H:%M:%S"),
-                    end_ts.strftime("%Y-%m-%d %H:%M:%S"),
-                    market_type=lower_market,
-                )
-                st.session_state["lower_df"] = lower_df
-                st.session_state["lower_params"] = params
-                st.success(f"下行数据已加载: {len(lower_df)} 行")
-            except Exception as e:
-                st.error(f"下行数据下载失败: {e}")
-        # 如果参数变了，清空缓存
-        if st.session_state.get("lower_params") != params:
-            st.session_state["lower_df"] = None
-            st.session_state["lower_params"] = None
-            lower_df = None
+
+        def _fetch():
+            return download_binance_klines(
+                lower_symbol,
+                li,
+                start_ts.strftime("%Y-%m-%d %H:%M:%S"),
+                end_ts.strftime("%Y-%m-%d %H:%M:%S"),
+                market_type=lower_market,
+            )
+
+        return _fetch
+
+    lower_fetch = build_lower_fetch()
+    lower_df = None  # 不预下载，只在冲突时由 lower_fetch 拉取
 
     # 估计主周期秒数
     ts_main = pd.to_datetime(df["timestamp"])
@@ -298,6 +266,7 @@ def main():
             lower_df=lower_df,
             upper_interval_sec=upper_interval_sec,
             lower_interval_sec=int(pd.to_datetime(lower_df["timestamp"]).diff().dt.total_seconds().median()) if lower_df is not None else 0,
+            lower_fetch=lower_fetch,
         )
     elif strategy == "Alligator":
         trades_df, summary = run_alligator(
@@ -305,9 +274,10 @@ def main():
             lower_df=lower_df,
             upper_interval_sec=upper_interval_sec,
             lower_interval_sec=int(pd.to_datetime(lower_df["timestamp"]).diff().dt.total_seconds().median()) if lower_df is not None else 0,
+            lower_fetch=lower_fetch,
         )
     else:
-        trades_df, summary = run_breakout(df)
+        trades_df, summary = run_breakout(df, lower_fetch=lower_fetch)
     if trades_df is not None and summary is not None:
         st.session_state["trades_df"] = trades_df
         st.session_state["summary"] = summary

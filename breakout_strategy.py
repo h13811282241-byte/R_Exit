@@ -127,6 +127,7 @@ def simulate_trades(
     lower_interval_sec: int = 60,
     stop_loss_streak: int = 0,
     stop_duration_days: int = 0,
+    lower_fetch=None,
 ) -> List[Dict]:
     """
     固定 TP (R_target*ATR*k_sl) + 移动止损 (k_trail*ATR)
@@ -144,6 +145,7 @@ def simulate_trades(
             "high": lower_df["high"].to_numpy(),
             "low": lower_df["low"].to_numpy(),
         }
+    lower_cache_built = lower_data is not None
 
     trades: List[Dict] = []
     last_index = len(df) - 1
@@ -152,6 +154,18 @@ def simulate_trades(
     loss_streak = 0
 
     def resolve_conflict(side: str, sl: float, tp: float, start_ts, end_ts):
+        nonlocal lower_data, lower_cache_built
+        if lower_data is None and lower_fetch and not lower_cache_built:
+            try:
+                df_lower = lower_fetch()
+                lower_data = {
+                    "ts": pd.to_datetime(df_lower["timestamp"], utc=True).to_numpy(),
+                    "high": df_lower["high"].to_numpy(),
+                    "low": df_lower["low"].to_numpy(),
+                }
+            except Exception:
+                lower_data = None
+            lower_cache_built = True
         if lower_data is None:
             return "sl", sl  # 保守
         mask = (lower_data["ts"] >= start_ts) & (lower_data["ts"] < end_ts)

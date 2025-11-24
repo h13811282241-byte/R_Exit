@@ -79,6 +79,7 @@ def simulate_basic(
     lower_df: Optional[pd.DataFrame] = None,
     upper_interval_sec: int = 0,
     lower_interval_sec: int = 0,
+    lower_fetch=None,
 ) -> List[Dict]:
     """
     signals: list of dict with idx, side, entry, sl, tp (optional), exit_idx (optional)
@@ -95,12 +96,25 @@ def simulate_basic(
             "high": lower_df["high"].to_numpy(),
             "low": lower_df["low"].to_numpy(),
         }
+    lower_cache_built = lower_data is not None
 
     fee_round = fee_side_pct * 2.0
     trades: List[Dict] = []
     last_index = len(df) - 1
 
     def resolve_conflict(side: str, sl: float, tp: float, start_ts, end_ts):
+        nonlocal lower_data, lower_cache_built
+        if lower_data is None and lower_fetch and not lower_cache_built:
+            try:
+                df_lower = lower_fetch()
+                lower_data = {
+                    "ts": pd.to_datetime(df_lower["timestamp"], utc=True).to_numpy(),
+                    "high": df_lower["high"].to_numpy(),
+                    "low": df_lower["low"].to_numpy(),
+                }
+            except Exception:
+                lower_data = None
+            lower_cache_built = True
         if lower_data is None:
             return "sl", sl
         mask = (lower_data["ts"] >= start_ts) & (lower_data["ts"] < end_ts)
