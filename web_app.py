@@ -104,6 +104,8 @@ def run_rsi_divergence(
         k_sl = st.number_input("k_sl (ATR倍数)", 0.5, 5.0, 1.5, key="rsi_k_sl")
         tp_R = st.number_input("TP R 倍数", 0.5, 10.0, 2.0, key="rsi_tp_R")
         fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f", key="rsi_fee_side")
+        entry_slip_pct = st.number_input("开仓滑点比例(如0.0005=0.05%)", 0.0, 0.01, 0.0, format="%.5f", key="rsi_entry_slip")
+        sl_buffer_pct = st.number_input("止损缓冲比例(如0.002=0.2%)", 0.0, 0.05, 0.0, format="%.4f", key="rsi_sl_buffer")
         run = st.form_submit_button("运行回测", use_container_width=True)
     if not run:
         return None, None
@@ -129,6 +131,8 @@ def run_rsi_divergence(
         upper_interval_sec=upper_interval_sec,
         lower_interval_sec=lower_interval_sec,
         lower_fetch=lower_fetch,
+        entry_slip_pct=entry_slip_pct,
+        sl_buffer_pct=sl_buffer_pct,
     )
     trades_df = pd.DataFrame(trades)
     summary = summarize_trades(trades)

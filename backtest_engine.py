@@ -80,6 +80,8 @@ def simulate_basic(
     upper_interval_sec: int = 0,
     lower_interval_sec: int = 0,
     lower_fetch=None,
+    entry_slip_pct: float = 0.0,
+    sl_buffer_pct: float = 0.0,
 ) -> List[Dict]:
     """
     signals: list of dict with idx, side, entry, sl, tp (optional), exit_idx (optional)
@@ -140,9 +142,15 @@ def simulate_basic(
         if idx >= last_index:
             continue
         side = sig["side"]
-        entry = sig["entry"]
+        entry_raw = sig["entry"]
+        entry = entry_raw * (1 + entry_slip_pct if side == "long" else 1 - entry_slip_pct)
         sl = sig["sl"]
         tp = sig.get("tp")
+        if sl_buffer_pct != 0:
+            if side == "long":
+                sl = sl - entry * sl_buffer_pct
+            else:
+                sl = sl + entry * sl_buffer_pct
         risk = entry - sl if side == "long" else sl - entry
         if risk <= 0:
             continue
