@@ -256,6 +256,7 @@ def main():
     auto_lower = st.sidebar.checkbox("无下行周期时自动下载1m判顺序", value=False, key="auto_lower_global")
     lower_market = st.sidebar.selectbox("下行数据市场类型", ["spot", "usdt_perp", "coin_perp", "usdc_perp"], index=1, key="lower_market")
     lower_symbol = st.sidebar.text_input("下行数据交易对", "ETHUSDT", key="lower_symbol")
+    min_net_r = st.sidebar.number_input("过滤净R小于该值的交易", -10.0, 10.0, 0.0, key="min_net_r")
 
     def build_lower_fetch():
         if not (lower_interval or auto_lower):
@@ -304,6 +305,11 @@ def main():
         )
     else:
         trades_df, summary = run_breakout(df, lower_fetch=lower_fetch)
+
+    # 过滤净R
+    if trades_df is not None and not trades_df.empty:
+        trades_df = trades_df[trades_df["net_R"] >= min_net_r].reset_index(drop=True)
+        summary = summarize_trades(trades_df.to_dict("records"))
     if trades_df is not None and summary is not None:
         st.session_state["trades_df"] = trades_df
         st.session_state["summary"] = summary
