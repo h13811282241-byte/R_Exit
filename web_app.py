@@ -67,7 +67,19 @@ def load_data_ui():
     return st.session_state.get("data_df")
 
 
-def run_rsi_divergence(df: pd.DataFrame):
+def parse_interval_seconds(interval: str) -> int:
+    unit = interval[-1].lower()
+    value = int(interval[:-1])
+    if unit == "m":
+        return value * 60
+    if unit == "h":
+        return value * 3600
+    if unit == "d":
+        return value * 86400
+    raise ValueError(f"不支持的周期 {interval}")
+
+
+def run_rsi_divergence(df: pd.DataFrame, lower_df=None, upper_interval_sec: int = 0, lower_interval_sec: int = 0):
     st.header("RSI 背离策略")
     with st.sidebar.form(key="rsi_form"):
         rsi_period = st.number_input("RSI period", 5, 50, 14, key="rsi_period")
@@ -99,13 +111,20 @@ def run_rsi_divergence(df: pd.DataFrame):
         k_sl=k_sl,
         tp_R=tp_R,
     )
-    trades = simulate_basic(df, signals, fee_side_pct=fee_side)
+    trades = simulate_basic(
+        df,
+        signals,
+        fee_side_pct=fee_side,
+        lower_df=lower_df,
+        upper_interval_sec=upper_interval_sec,
+        lower_interval_sec=lower_interval_sec,
+    )
     trades_df = pd.DataFrame(trades)
     summary = summarize_trades(trades)
     return trades_df, summary
 
 
-def run_alligator(df: pd.DataFrame):
+def run_alligator(df: pd.DataFrame, lower_df=None, upper_interval_sec: int = 0, lower_interval_sec: int = 0):
     st.header("Alligator 趋势策略")
     with st.sidebar.form(key="allig_form"):
         jaw_period = st.number_input("Jaw period", 5, 30, 13, key="allig_jaw")
@@ -137,7 +156,14 @@ def run_alligator(df: pd.DataFrame):
         k_sl=k_sl,
         tp_R=tp_R,
     )
-    trades = simulate_basic(df, signals, fee_side_pct=fee_side)
+    trades = simulate_basic(
+        df,
+        signals,
+        fee_side_pct=fee_side,
+        lower_df=lower_df,
+        upper_interval_sec=upper_interval_sec,
+        lower_interval_sec=lower_interval_sec,
+    )
     trades_df = pd.DataFrame(trades)
     summary = summarize_trades(trades)
     return trades_df, summary
@@ -169,7 +195,6 @@ def run_breakout(df: pd.DataFrame):
 
     lower_df = None
     if lower_interval:
-        # 使用当前数据时间范围
         start_ts = pd.to_datetime(df["timestamp"].iloc[0])
         end_ts = pd.to_datetime(df["timestamp"].iloc[-1])
         lower_df = download_binance_klines(
@@ -225,14 +250,46 @@ def main():
         st.info("请先加载数据")
         return
     df = ensure_ohlcv_df(df)
+    # 通用下行周期设置
+    lower_interval = st.sidebar.text_input("下行周期(如1m，可空)", "", key="lower_global")
+    auto_lower = st.sidebar.checkbox("无下行周期时自动下载1m判顺序", value=False, key="auto_lower_global")
+    lower_market = st.sidebar.selectbox("下行数据市场类型", ["spot", "usdt_perp", "coin_perp", "usdc_perp"], index=1, key="lower_market")
+    lower_symbol = st.sidebar.text_input("下行数据交易对", "ETHUSDT", key="lower_symbol")
+    lower_df = None
+    if lower_interval or auto_lower:
+        start_ts = pd.to_datetime(df["timestamp"].iloc[0])
+        end_ts = pd.to_datetime(df["timestamp"].iloc[-1])
+        li = lower_interval if lower_interval else "1m"
+        lower_df = download_binance_klines(
+            lower_symbol,
+            li,
+            start_ts.strftime("%Y-%m-%d %H:%M:%S"),
+            end_ts.strftime("%Y-%m-%d %H:%M:%S"),
+            market_type=lower_market,
+        )
+
+    # 估计主周期秒数
+    ts_main = pd.to_datetime(df["timestamp"])
+    diffs_main = ts_main.diff().dropna().dt.total_seconds()
+    upper_interval_sec = int(diffs_main.median()) if not diffs_main.empty else 0
 
     strategy = st.sidebar.radio("策略", ["RSI 背离", "Alligator", "Breakout"], key="strategy_choice")
     trades_df = None
     summary = None
     if strategy == "RSI 背离":
-        trades_df, summary = run_rsi_divergence(df)
+        trades_df, summary = run_rsi_divergence(
+            df,
+            lower_df=lower_df,
+            upper_interval_sec=upper_interval_sec,
+            lower_interval_sec=int(pd.to_datetime(lower_df["timestamp"]).diff().dt.total_seconds().median()) if lower_df is not None else 60,
+        )
     elif strategy == "Alligator":
-        trades_df, summary = run_alligator(df)
+        trades_df, summary = run_alligator(
+            df,
+            lower_df=lower_df,
+            upper_interval_sec=upper_interval_sec,
+            lower_interval_sec=int(pd.to_datetime(lower_df["timestamp"]).diff().dt.total_seconds().median()) if lower_df is not None else 60,
+        )
     else:
         trades_df, summary = run_breakout(df)
     if trades_df is not None and summary is not None:
