@@ -40,21 +40,23 @@ def plot_equity(trades: pd.DataFrame):
 def load_data_ui():
     for key in ["data_df", "trades_df", "summary", "strategy_name"]:
         st.session_state.setdefault(key, None)
-    source = st.sidebar.radio("数据来源", ["上传 CSV", "币安下载"])
+    source = st.sidebar.radio("数据来源", ["上传 CSV", "币安下载"], key="data_source")
     df = st.session_state.get("data_df")
     if source == "上传 CSV":
-        file = st.sidebar.file_uploader("上传 CSV (需包含 timestamp,open,high,low,close,volume)", type=["csv"])
+        file = st.sidebar.file_uploader(
+            "上传 CSV (需包含 timestamp,open,high,low,close,volume)", type=["csv"], key="upload_csv"
+        )
         if file:
             with tempfile.NamedTemporaryFile(delete=False) as tmp:
                 tmp.write(file.read())
                 df = load_csv(tmp.name)
                 st.session_state["data_df"] = df
     else:
-        symbol = st.sidebar.text_input("交易对", "ETHUSDT")
-        interval = st.sidebar.text_input("周期(如 5m/15m/1h/4h)", "1h")
-        start = st.sidebar.text_input("开始时间 UTC", "2024-01-01 00:00:00")
-        end = st.sidebar.text_input("结束时间 UTC", "2024-02-01 00:00:00")
-        if st.sidebar.button("下载"):
+        symbol = st.sidebar.text_input("交易对", "ETHUSDT", key="dl_symbol")
+        interval = st.sidebar.text_input("周期(如 5m/15m/1h/4h)", "1h", key="dl_interval")
+        start = st.sidebar.text_input("开始时间 UTC", "2024-01-01 00:00:00", key="dl_start")
+        end = st.sidebar.text_input("结束时间 UTC", "2024-02-01 00:00:00", key="dl_end")
+        if st.sidebar.button("下载", key="dl_button"):
             try:
                 df = download_binance_klines(symbol, interval, start, end, market_type="spot")
                 st.session_state["data_df"] = df
@@ -142,8 +144,8 @@ def main():
         return
     df = ensure_ohlcv_df(df)
 
-    strategy = st.sidebar.radio("策略", ["RSI 背离", "Alligator"])
-    if st.sidebar.button("运行回测"):
+    strategy = st.sidebar.radio("策略", ["RSI 背离", "Alligator"], key="strategy_choice")
+    if st.sidebar.button("运行回测", key="run_backtest"):
         if strategy == "RSI 背离":
             trades_df, summary = run_rsi_divergence(df)
         else:
