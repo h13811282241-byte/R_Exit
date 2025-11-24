@@ -13,6 +13,7 @@ from data_loader import load_csv, download_binance_klines, ensure_ohlcv_df
 from indicators import atr, alligator
 from strategy_rsi_divergence import detect_rsi_divergence_signals
 from strategy_alligator import detect_alligator_signals, prepare_sl_tp
+from breakout_strategy import detect_breakouts, simulate_trades as simulate_breakout
 from backtest_engine import simulate_basic, summarize_trades
 
 
@@ -142,6 +143,81 @@ def run_alligator(df: pd.DataFrame):
     return trades_df, summary
 
 
+def run_breakout(df: pd.DataFrame):
+    st.header("趋势突破策略")
+    with st.sidebar.form(key="breakout_form"):
+        ema_span = st.number_input("EMA span", 10, 500, 100, key="br_ema")
+        donchian_n = st.number_input("Donchian N", 5, 200, 24, key="br_donchian")
+        atr_period = st.number_input("ATR period", 5, 100, 20, key="br_atr")
+        k_buffer = st.number_input("ATR buffer倍数", 0.0, 5.0, 0.1, key="br_buf")
+        vol_lookback = st.number_input("量均值窗口", 5, 200, 20, key="br_vol_lb")
+        vol_mult = st.number_input("量倍数", 0.5, 5.0, 1.5, key="br_vol_mult")
+        atr_median_lookback = st.number_input("ATR中位窗口", 10, 500, 100, key="br_atr_med")
+        k_sl = st.number_input("k_sl(ATR倍数)", 0.1, 5.0, 1.5, key="br_k_sl")
+        R_target = st.number_input("R_target", 0.5, 10.0, 3.0, key="br_r_target")
+        k_trail = st.number_input("k_trail(ATR倍数)", 0.5, 5.0, 2.0, key="br_k_trail")
+        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f", key="br_fee")
+        stop_loss_streak = st.number_input("连亏触发笔数", 0, 50, 0, key="br_streak")
+        stop_duration_days = st.number_input("休息天数", 0, 365, 0, key="br_stop_days")
+        lower_interval = st.text_input("下行周期(如1m，可空)", "", key="br_lower")
+        auto_lower = st.checkbox("无下行周期时自动下载1m判顺序", value=False, key="br_auto_lower")
+        market_type = st.selectbox("下行市场类型", ["spot", "usdt_perp", "coin_perp", "usdc_perp"], index=1, key="br_mkt")
+        symbol_for_lower = st.text_input("用于下行数据的交易对", "ETHUSDT", key="br_symbol_lower")
+        run = st.form_submit_button("运行回测", use_container_width=True)
+    if not run:
+        return None, None
+
+    lower_df = None
+    if lower_interval:
+        # 使用当前数据时间范围
+        start_ts = pd.to_datetime(df["timestamp"].iloc[0])
+        end_ts = pd.to_datetime(df["timestamp"].iloc[-1])
+        lower_df = download_binance_klines(
+            symbol_for_lower,
+            lower_interval,
+            start_ts.strftime("%Y-%m-%d %H:%M:%S"),
+            end_ts.strftime("%Y-%m-%d %H:%M:%S"),
+            market_type=market_type,
+        )
+    elif auto_lower:
+        start_ts = pd.to_datetime(df["timestamp"].iloc[0])
+        end_ts = pd.to_datetime(df["timestamp"].iloc[-1])
+        lower_df = download_binance_klines(
+            symbol_for_lower,
+            "1m",
+            start_ts.strftime("%Y-%m-%d %H:%M:%S"),
+            end_ts.strftime("%Y-%m-%d %H:%M:%S"),
+            market_type=market_type,
+        )
+
+    signals = detect_breakouts(
+        df,
+        ema_span=ema_span,
+        donchian_n=donchian_n,
+        atr_period=atr_period,
+        k_buffer=k_buffer,
+        vol_lookback=vol_lookback,
+        vol_mult=vol_mult,
+        atr_median_lookback=atr_median_lookback,
+    )
+    trades = simulate_breakout(
+        df,
+        signals,
+        k_sl=k_sl,
+        R_target=R_target,
+        k_trail=k_trail,
+        fee_side=fee_side,
+        lower_df=lower_df,
+        upper_interval_sec=0,
+        lower_interval_sec=60,
+        stop_loss_streak=stop_loss_streak,
+        stop_duration_days=stop_duration_days,
+    )
+    trades_df = pd.DataFrame(trades)
+    summary = summarize_trades(trades, key="net_R")
+    return trades_df, summary
+
+
 def main():
     st.set_page_config(page_title="RSI 背离 + Alligator 回测", layout="wide")
     df = load_data_ui()
@@ -150,13 +226,15 @@ def main():
         return
     df = ensure_ohlcv_df(df)
 
-    strategy = st.sidebar.radio("策略", ["RSI 背离", "Alligator"], key="strategy_choice")
+    strategy = st.sidebar.radio("策略", ["RSI 背离", "Alligator", "Breakout"], key="strategy_choice")
     trades_df = None
     summary = None
     if strategy == "RSI 背离":
         trades_df, summary = run_rsi_divergence(df)
-    else:
+    elif strategy == "Alligator":
         trades_df, summary = run_alligator(df)
+    else:
+        trades_df, summary = run_breakout(df)
     if trades_df is not None and summary is not None:
         st.session_state["trades_df"] = trades_df
         st.session_state["summary"] = summary
