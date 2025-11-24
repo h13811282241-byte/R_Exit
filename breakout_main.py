@@ -201,6 +201,28 @@ def main():
             t2 = pd.to_datetime(df.loc[end_idx, "timestamp"], utc=True).tz_convert("Asia/Shanghai")
             loss_range_time = f"{t1.strftime('%Y-%m-%d %H:%M:%S %Z')} ~ {t2.strftime('%Y-%m-%d %H:%M:%S %Z')}"
 
+    def bucket_by_risk(trades_df: pd.DataFrame):
+        buckets = [0, 0.002, 0.004, 0.008, 0.015, float("inf")]
+        labels = ["0-0.2%", "0.2-0.4%", "0.4-0.8%", "0.8-1.5%", ">1.5%"]
+        trades_df = trades_df.copy()
+        trades_df["risk_bucket"] = pd.cut(trades_df["risk_pct"], bins=buckets, labels=labels, include_lowest=True)
+        stats = []
+        for lab in labels:
+            sub = trades_df[trades_df["risk_bucket"] == lab]
+            if sub.empty:
+                continue
+            stats.append(
+                {
+                    "bucket": lab,
+                    "count": len(sub),
+                    "win_rate": (sub["net_R"] > 0).mean(),
+                    "avg_net_R": sub["net_R"].mean(),
+                    "avg_raw_R": sub["raw_R"].mean(),
+                    "avg_risk_pct": sub["risk_pct"].mean(),
+                }
+            )
+        return stats
+
     last_entries = []
     if trades:
         for t in trades[-5:]:
@@ -208,6 +230,9 @@ def main():
             if 0 <= idx < len(df):
                 ts = pd.to_datetime(df.loc[idx, "timestamp"], utc=True).tz_convert("Asia/Shanghai")
                 last_entries.append(ts.strftime("%Y-%m-%d %H:%M:%S %Z"))
+
+    trades_df_full = pd.DataFrame(trades)
+    bucket_stats = bucket_by_risk(trades_df_full) if not trades_df_full.empty else []
 
     print("==== 趋势突破回测结果 ====")
     print(f"交易笔数: {summary['num_trades']}")
@@ -222,6 +247,13 @@ def main():
     print(f"复利最终资金: {comp['final']:.2f} (初始 {args.initial_capital}, 每笔风险 {args.risk_perc*100:.2f}% ), 最大回撤: {comp['max_drawdown']*100:.2f}%")
     if last_entries:
         print("最近5次开仓时间(北京):", "; ".join(last_entries))
+    if bucket_stats:
+        print("按风险占比分桶表现：")
+        for s in bucket_stats:
+            print(
+                f"{s['bucket']}: {s['count']} 笔, 胜率 {s['win_rate']*100:.1f}%, "
+                f"均净R {s['avg_net_R']:.3f}, 均raw_R {s['avg_raw_R']:.3f}, 均风险占比 {s['avg_risk_pct']*100:.2f}%"
+            )
 
     if args.plot:
         out_dir = Path(args.plot_dir)
