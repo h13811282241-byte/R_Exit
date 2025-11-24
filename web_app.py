@@ -36,6 +36,13 @@ def plot_equity(trades: pd.DataFrame):
     if trades.empty:
         st.info("无交易")
         return
+    if "net_R" not in trades.columns:
+        if "raw_R" in trades.columns:
+            trades = trades.copy()
+            trades["net_R"] = trades["raw_R"]
+        else:
+            st.info("无 net_R 列，无法绘制权益曲线")
+            return
     trades["cum_net_R"] = trades["net_R"].cumsum()
     fig = go.Figure(data=[go.Scatter(x=trades.index, y=trades["cum_net_R"], mode="lines", name="Cumulative net R")])
     fig.update_layout(height=300)
@@ -318,6 +325,9 @@ def main():
     trades_df = st.session_state.get("trades_df")
     summary = st.session_state.get("summary")
     if trades_df is not None and summary is not None:
+        if "net_R" not in trades_df.columns and "raw_R" in trades_df.columns:
+            trades_df = trades_df.copy()
+            trades_df["net_R"] = trades_df["raw_R"]
         st.subheader(f"统计概览（{st.session_state.get('strategy_name','')}）")
         st.write(
             {
