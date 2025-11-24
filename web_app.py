@@ -83,7 +83,13 @@ def parse_interval_seconds(interval: str) -> int:
     raise ValueError(f"不支持的周期 {interval}")
 
 
-def run_rsi_divergence(df: pd.DataFrame, lower_df=None, upper_interval_sec: int = 0, lower_interval_sec: int = 0):
+def run_rsi_divergence(
+    df: pd.DataFrame,
+    lower_df=None,
+    upper_interval_sec: int = 0,
+    lower_interval_sec: int = 0,
+    lower_fetch=None,
+):
     st.header("RSI 背离策略")
     with st.sidebar.form(key="rsi_form"):
         rsi_period = st.number_input("RSI period", 5, 50, 14, key="rsi_period")
@@ -122,13 +128,20 @@ def run_rsi_divergence(df: pd.DataFrame, lower_df=None, upper_interval_sec: int 
         lower_df=lower_df,
         upper_interval_sec=upper_interval_sec,
         lower_interval_sec=lower_interval_sec,
+        lower_fetch=lower_fetch,
     )
     trades_df = pd.DataFrame(trades)
     summary = summarize_trades(trades)
     return trades_df, summary
 
 
-def run_alligator(df: pd.DataFrame, lower_df=None, upper_interval_sec: int = 0, lower_interval_sec: int = 0):
+def run_alligator(
+    df: pd.DataFrame,
+    lower_df=None,
+    upper_interval_sec: int = 0,
+    lower_interval_sec: int = 0,
+    lower_fetch=None,
+):
     st.header("Alligator 趋势策略")
     with st.sidebar.form(key="allig_form"):
         jaw_period = st.number_input("Jaw period", 5, 30, 13, key="allig_jaw")
@@ -167,6 +180,7 @@ def run_alligator(df: pd.DataFrame, lower_df=None, upper_interval_sec: int = 0, 
         lower_df=lower_df,
         upper_interval_sec=upper_interval_sec,
         lower_interval_sec=lower_interval_sec,
+        lower_fetch=lower_fetch,
     )
     trades_df = pd.DataFrame(trades)
     summary = summarize_trades(trades)
