@@ -121,7 +121,7 @@ def simulate_trades(
     k_sl: float = 1.5,
     R_target: float = 3.0,
     k_trail: float = 2.0,
-    fee_side: float = 0.000248,
+    fee_side: float = 0.00045,
     lower_df: Optional[pd.DataFrame] = None,
     upper_interval_sec: int = 3600,
     lower_interval_sec: int = 60,

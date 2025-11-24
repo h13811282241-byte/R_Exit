@@ -103,7 +103,7 @@ def run_rsi_divergence(
         atr_period = st.number_input("ATR period", 5, 50, 14, key="rsi_atr_period")
         k_sl = st.number_input("k_sl (ATR倍数)", 0.5, 5.0, 1.5, key="rsi_k_sl")
         tp_R = st.number_input("TP R 倍数", 0.5, 10.0, 2.0, key="rsi_tp_R")
-        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f", key="rsi_fee_side")
+        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.00045, format="%.6f", key="rsi_fee_side")
         entry_slip_pct = st.number_input("开仓滑点比例(如0.0005=0.05%)", 0.0, 0.01, 0.0, format="%.5f", key="rsi_entry_slip")
         sl_buffer_pct = st.number_input("止损缓冲比例(如0.002=0.2%)", 0.0, 0.05, 0.0, format="%.4f", key="rsi_sl_buffer")
         run = st.form_submit_button("运行回测", use_container_width=True)
@@ -157,7 +157,7 @@ def run_alligator(
         atr_period = st.number_input("ATR period", 5, 50, 14, key="allig_atr_period")
         k_sl = st.number_input("k_sl (ATR倍数)", 0.5, 5.0, 1.5, key="allig_k_sl")
         tp_R = st.number_input("TP R 倍数", 0.5, 10.0, 2.0, key="allig_tp_R")
-        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f", key="allig_fee_side")
+        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.00045, format="%.6f", key="allig_fee_side")
         run = st.form_submit_button("运行回测", use_container_width=True)
     if not run:
         return None, None
@@ -204,7 +204,7 @@ def run_breakout(df: pd.DataFrame, lower_fetch=None):
         k_sl = st.number_input("k_sl(ATR倍数)", 0.1, 5.0, 1.5, key="br_k_sl")
         R_target = st.number_input("R_target", 0.5, 10.0, 3.0, key="br_r_target")
         k_trail = st.number_input("k_trail(ATR倍数)", 0.5, 5.0, 2.0, key="br_k_trail")
-        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f", key="br_fee")
+        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.00045, format="%.6f", key="br_fee")
         stop_loss_streak = st.number_input("连亏触发笔数", 0, 50, 0, key="br_streak")
         stop_duration_days = st.number_input("休息天数", 0, 365, 0, key="br_stop_days")
         run = st.form_submit_button("运行回测", use_container_width=True)

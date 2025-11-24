@@ -44,7 +44,7 @@ def parse_args():
     p.add_argument("--k_sl", type=float, default=1.5)
     p.add_argument("--R_target", type=float, default=3.0)
     p.add_argument("--k_trail", type=float, default=2.0)
-    p.add_argument("--fee_side", type=float, default=0.000248, help="单边手续费比例，默认 0.0248%")
+    p.add_argument("--fee_side", type=float, default=0.00045, help="单边手续费比例，默认 0.045%")
     p.add_argument("--stop_loss_streak", type=int, default=0, help="连亏达到此笔数后停止开仓，0 表示不启用")
     p.add_argument("--stop_duration_days", type=int, default=0, help="连亏触发后休息的天数")
     p.add_argument("--initial_capital", type=float, default=7000.0, help="复利计算初始资金，默认7000")
