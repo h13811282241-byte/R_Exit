@@ -193,3 +193,16 @@ def simulate_basic(
             }
         )
     return trades
+
+
+def equity_curve(trades: List[Dict], key: str = "net_R") -> pd.DataFrame:
+    """返回累计 R 曲线 DataFrame"""
+    cum = []
+    total = 0.0
+    for i, t in enumerate(trades, start=1):
+        val = t.get(key, t.get("net_R", t.get("R", 0.0)))
+        if val is None or math.isnan(val):
+            val = 0.0
+        total += val
+        cum.append({"trade_index": i, "cumulative_R": total})
+    return pd.DataFrame(cum)
