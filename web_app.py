@@ -68,19 +68,22 @@ def load_data_ui():
 
 def run_rsi_divergence(df: pd.DataFrame):
     st.header("RSI 背离策略")
-    with st.sidebar:
-        rsi_period = st.number_input("RSI period", 5, 50, 14)
-        overbought = st.number_input("Overbought", 50.0, 90.0, 70.0)
-        oversold = st.number_input("Oversold", 10.0, 50.0, 30.0)
-        lookback_bars = st.number_input("Lookback bars", 5, 100, 20)
-        pivot_left = st.number_input("Pivot left", 1, 5, 2)
-        pivot_right = st.number_input("Pivot right", 1, 5, 2)
-        min_rsi_diff = st.number_input("最小RSI差值", 0.0, 20.0, 3.0)
-        sl_mode = st.selectbox("SL模式", ["swing", "atr"])
-        atr_period = st.number_input("ATR period", 5, 50, 14)
-        k_sl = st.number_input("k_sl (ATR倍数)", 0.5, 5.0, 1.5)
-        tp_R = st.number_input("TP R 倍数", 0.5, 5.0, 2.0)
-        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f")
+    with st.sidebar.form(key="rsi_form"):
+        rsi_period = st.number_input("RSI period", 5, 50, 14, key="rsi_period")
+        overbought = st.number_input("Overbought", 50.0, 90.0, 70.0, key="rsi_overbought")
+        oversold = st.number_input("Oversold", 10.0, 50.0, 30.0, key="rsi_oversold")
+        lookback_bars = st.number_input("Lookback bars", 5, 100, 20, key="rsi_lookback")
+        pivot_left = st.number_input("Pivot left", 1, 5, 2, key="rsi_pivot_left")
+        pivot_right = st.number_input("Pivot right", 1, 5, 2, key="rsi_pivot_right")
+        min_rsi_diff = st.number_input("最小RSI差值", 0.0, 20.0, 3.0, key="rsi_min_diff")
+        sl_mode = st.selectbox("SL模式", ["swing", "atr"], key="rsi_sl_mode")
+        atr_period = st.number_input("ATR period", 5, 50, 14, key="rsi_atr_period")
+        k_sl = st.number_input("k_sl (ATR倍数)", 0.5, 5.0, 1.5, key="rsi_k_sl")
+        tp_R = st.number_input("TP R 倍数", 0.5, 10.0, 2.0, key="rsi_tp_R")
+        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f", key="rsi_fee_side")
+        run = st.form_submit_button("运行回测", use_container_width=True)
+    if not run:
+        return None, None
     signals = detect_rsi_divergence_signals(
         df,
         rsi_period=rsi_period,
@@ -103,17 +106,20 @@ def run_rsi_divergence(df: pd.DataFrame):
 
 def run_alligator(df: pd.DataFrame):
     st.header("Alligator 趋势策略")
-    with st.sidebar:
-        jaw_period = st.number_input("Jaw period", 5, 30, 13)
-        teeth_period = st.number_input("Teeth period", 5, 20, 8)
-        lips_period = st.number_input("Lips period", 3, 15, 5)
-        trend_confirm_bars = st.number_input("趋势确认根数", 1, 10, 3)
-        entry_fresh_bars = st.number_input("入场新鲜度(根数)", 1, 20, 5)
-        sl_mode = st.selectbox("SL模式", ["atr", "swing"])
-        atr_period = st.number_input("ATR period", 5, 50, 14)
-        k_sl = st.number_input("k_sl (ATR倍数)", 0.5, 5.0, 1.5)
-        tp_R = st.number_input("TP R 倍数", 0.5, 5.0, 2.0)
-        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f")
+    with st.sidebar.form(key="allig_form"):
+        jaw_period = st.number_input("Jaw period", 5, 30, 13, key="allig_jaw")
+        teeth_period = st.number_input("Teeth period", 5, 20, 8, key="allig_teeth")
+        lips_period = st.number_input("Lips period", 3, 15, 5, key="allig_lips")
+        trend_confirm_bars = st.number_input("趋势确认根数", 1, 10, 3, key="allig_trend_confirm")
+        entry_fresh_bars = st.number_input("入场新鲜度(根数)", 1, 20, 5, key="allig_entry_fresh")
+        sl_mode = st.selectbox("SL模式", ["atr", "swing"], key="allig_sl_mode")
+        atr_period = st.number_input("ATR period", 5, 50, 14, key="allig_atr_period")
+        k_sl = st.number_input("k_sl (ATR倍数)", 0.5, 5.0, 1.5, key="allig_k_sl")
+        tp_R = st.number_input("TP R 倍数", 0.5, 10.0, 2.0, key="allig_tp_R")
+        fee_side = st.number_input("单边手续费(比例)", 0.0, 0.01, 0.000248, format="%.6f", key="allig_fee_side")
+        run = st.form_submit_button("运行回测", use_container_width=True)
+    if not run:
+        return None, None
     sig_raw = detect_alligator_signals(
         df,
         jaw_period=jaw_period,
@@ -145,11 +151,13 @@ def main():
     df = ensure_ohlcv_df(df)
 
     strategy = st.sidebar.radio("策略", ["RSI 背离", "Alligator"], key="strategy_choice")
-    if st.sidebar.button("运行回测", key="run_backtest"):
-        if strategy == "RSI 背离":
-            trades_df, summary = run_rsi_divergence(df)
-        else:
-            trades_df, summary = run_alligator(df)
+    trades_df = None
+    summary = None
+    if strategy == "RSI 背离":
+        trades_df, summary = run_rsi_divergence(df)
+    else:
+        trades_df, summary = run_alligator(df)
+    if trades_df is not None and summary is not None:
         st.session_state["trades_df"] = trades_df
         st.session_state["summary"] = summary
         st.session_state["strategy_name"] = strategy
