@@ -48,7 +48,7 @@ def load_data_ui():
                 df = load_csv(tmp.name)
     else:
         symbol = st.sidebar.text_input("交易对", "ETHUSDT")
-        interval = st.sidebar.selectbox("周期", ["5m", "15m", "1h", "4h"], index=2)
+        interval = st.sidebar.text_input("周期(如 5m/15m/1h/4h)", "1h")
         start = st.sidebar.text_input("开始时间 UTC", "2024-01-01 00:00:00")
         end = st.sidebar.text_input("结束时间 UTC", "2024-02-01 00:00:00")
         if st.sidebar.button("下载"):
