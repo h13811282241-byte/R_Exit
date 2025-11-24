@@ -50,6 +50,8 @@ def parse_args():
     p.add_argument("--initial_capital", type=float, default=7000.0, help="复利计算初始资金，默认7000")
     p.add_argument("--risk_perc", type=float, default=0.02, help="每笔风险占用资金比例，默认2%")
     p.add_argument("--auto_lower_on_conflict", action="store_true", help="未指定 lower_interval 时自动下载 1m 用于判同根先后")
+    p.add_argument("--entry_slip_pct", type=float, default=0.0, help="开仓滑点比例，long 上调，short 下调，如 0.0005=0.05%")
+    p.add_argument("--sl_buffer_pct", type=float, default=0.0, help="止损额外缓冲比例：long SL 再减 entry*该比例，short SL 再加")
 
     # 绘图
     p.add_argument("--plot", action="store_true", help="生成图表")

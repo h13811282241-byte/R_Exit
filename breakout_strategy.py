@@ -128,6 +128,8 @@ def simulate_trades(
     stop_loss_streak: int = 0,
     stop_duration_days: int = 0,
     lower_fetch=None,
+    entry_slip_pct: float = 0.0,
+    sl_buffer_pct: float = 0.0,
 ) -> List[Dict]:
     """
     固定 TP (R_target*ATR*k_sl) + 移动止损 (k_trail*ATR)
@@ -196,16 +198,20 @@ def simulate_trades(
         if block_until is not None and ts_entry < block_until:
             continue
         side = sig["side"]
-        entry = sig["entry"]
+        entry_raw = sig["entry"]
+        if entry_slip_pct != 0:
+            entry = entry_raw * (1 + entry_slip_pct if side == "long" else 1 - entry_slip_pct)
+        else:
+            entry = entry_raw
         atr_i = sig["atr"]
         risk_abs = k_sl * atr_i
         if risk_abs <= 0:
             continue
         if side == "long":
-            sl = entry - risk_abs
+            sl = entry - risk_abs - entry * sl_buffer_pct
             tp = entry + R_target * risk_abs
         else:
-            sl = entry + risk_abs
+            sl = entry + risk_abs + entry * sl_buffer_pct
             tp = entry - R_target * risk_abs
 
         trail_sl = sl
