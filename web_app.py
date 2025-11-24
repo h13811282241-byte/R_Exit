@@ -238,7 +238,10 @@ def run_breakout(df: pd.DataFrame, lower_fetch=None):
         lower_fetch=lower_fetch,
         entry_slip_pct=entry_slip_pct,
         sl_buffer_pct=sl_buffer_pct,
+        min_risk_pct=min_risk_pct,
     )
+    if isinstance(trades, tuple):
+        trades, _ = trades
     trades_df = pd.DataFrame(trades)
     summary = summarize_trades(trades, key="net_R")
     return trades_df, summary
