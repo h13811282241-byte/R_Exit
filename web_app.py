@@ -38,8 +38,8 @@ def plot_equity(trades: pd.DataFrame):
 
 
 def load_data_ui():
-    if "data_df" not in st.session_state:
-        st.session_state["data_df"] = None
+    for key in ["data_df", "trades_df", "summary", "strategy_name"]:
+        st.session_state.setdefault(key, None)
     source = st.sidebar.radio("数据来源", ["上传 CSV", "币安下载"])
     df = st.session_state.get("data_df")
     if source == "上传 CSV":
@@ -148,8 +148,14 @@ def main():
             trades_df, summary = run_rsi_divergence(df)
         else:
             trades_df, summary = run_alligator(df)
+        st.session_state["trades_df"] = trades_df
+        st.session_state["summary"] = summary
+        st.session_state["strategy_name"] = strategy
 
-        st.subheader("统计概览")
+    trades_df = st.session_state.get("trades_df")
+    summary = st.session_state.get("summary")
+    if trades_df is not None and summary is not None:
+        st.subheader(f"统计概览（{st.session_state.get('strategy_name','')}）")
         st.write(
             {
                 "交易笔数": summary["num_trades"],
@@ -165,6 +171,8 @@ def main():
         plot_price(df, trades_df)
         st.subheader("交易明细（前 200）")
         st.dataframe(trades_df.head(200))
+    else:
+        st.info("点击“运行回测”查看结果")
 
 
 if __name__ == "__main__":
