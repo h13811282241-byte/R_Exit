@@ -83,7 +83,7 @@ def simulate_basic(
     entry_slip_pct: float = 0.0,
     sl_buffer_pct: float = 0.0,
     min_risk_pct: float = 0.0,
-) -> List[Dict]:
+) -> (List[Dict], Dict[str, int]):
     """
     signals: list of dict with idx, side, entry, sl, tp (optional), exit_idx (optional)
     """
@@ -138,6 +138,8 @@ def simulate_basic(
                 return "sl", sl
         return "sl", sl
 
+    skipped_small_risk = 0
+
     for sig in signals:
         idx = sig["idx"]
         if idx >= last_index:
@@ -157,6 +159,7 @@ def simulate_basic(
             continue
         risk_pct = risk / entry
         if risk_pct < min_risk_pct:
+            skipped_small_risk += 1
             continue
         exit_idx = None
         exit_price = None
@@ -219,7 +222,7 @@ def simulate_basic(
                 "exit_idx": exit_idx,
             }
         )
-    return trades
+    return trades, {"skipped_small_risk": skipped_small_risk}
 
 
 def equity_curve(trades: List[Dict], key: str = "net_R") -> pd.DataFrame:

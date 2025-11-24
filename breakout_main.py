@@ -52,7 +52,7 @@ def parse_args():
     p.add_argument("--auto_lower_on_conflict", action="store_true", help="未指定 lower_interval 时自动下载 1m 用于判同根先后")
     p.add_argument("--entry_slip_pct", type=float, default=0.0, help="开仓滑点比例，long 上调，short 下调，如 0.0005=0.05%")
     p.add_argument("--sl_buffer_pct", type=float, default=0.0, help="止损额外缓冲比例：long SL 再减 entry*该比例，short SL 再加")
-    p.add_argument("--min_risk_pct", type=float, default=0.0045, help="最小风险百分比，默认0.45%，低于此视为过小单")
+    p.add_argument("--min_risk_pct", type=float, default=0.001, help="最小风险百分比，默认0.1%，低于此视为过小单")
 
     # 绘图
     p.add_argument("--plot", action="store_true", help="生成图表")
@@ -144,7 +144,7 @@ def main():
         vol_mult=args.vol_mult,
         atr_median_lookback=args.atr_median_lookback,
     )
-    trades = simulate_trades(
+    trades, stats = simulate_trades(
         df,
         signals,
         k_sl=args.k_sl,
@@ -244,6 +244,8 @@ def main():
     if max_loss_len > 0:
         print(f"最长连亏: {max_loss_len} 笔，净R合计 {worst_loss_sum:.3f}"
               + (f"，时间段: {loss_range_time}" if loss_range_time else ""))
+    if stats.get("skipped_small_risk"):
+        print(f"过滤过小止损单: {stats['skipped_small_risk']} 笔 (风险占比 <= {args.min_risk_pct*100:.2f}%)")
     print(f"复利最终资金: {comp['final']:.2f} (初始 {args.initial_capital}, 每笔风险 {args.risk_perc*100:.2f}% ), 最大回撤: {comp['max_drawdown']*100:.2f}%")
     if last_entries:
         print("最近5次开仓时间(北京):", "; ".join(last_entries))

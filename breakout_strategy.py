@@ -131,7 +131,7 @@ def simulate_trades(
     entry_slip_pct: float = 0.0,
     sl_buffer_pct: float = 0.0,
     min_risk_pct: float = 0.0,
-) -> List[Dict]:
+) -> (List[Dict], Dict[str, int]):
     """
     固定 TP (R_target*ATR*k_sl) + 移动止损 (k_trail*ATR)
     """
@@ -155,6 +155,7 @@ def simulate_trades(
     fee_round = fee_side * 2.0
     block_until = None
     loss_streak = 0
+    skipped_small_risk = 0
 
     def resolve_conflict(side: str, sl: float, tp: float, start_ts, end_ts):
         nonlocal lower_data, lower_cache_built
@@ -209,6 +210,7 @@ def simulate_trades(
         if risk_abs <= 0:
             continue
         if (risk_abs / entry) < min_risk_pct:
+            skipped_small_risk += 1
             continue
         if side == "long":
             sl = entry - risk_abs - entry * sl_buffer_pct
@@ -301,4 +303,4 @@ def simulate_trades(
         if stop_loss_streak > 0 and stop_duration_days > 0 and loss_streak >= stop_loss_streak:
             block_until = ts_upper[exit_idx] + pd.Timedelta(days=stop_duration_days)
             loss_streak = 0
-    return trades
+    return trades, {"skipped_small_risk": skipped_small_risk}
