@@ -204,6 +204,8 @@ def run_breakout(df: pd.DataFrame, lower_fetch=None):
         stop_loss_streak = st.number_input("连亏触发笔数", 0, 50, 0, key="br_streak")
         stop_duration_days = st.number_input("休息天数", 0, 365, 0, key="br_stop_days")
         run = st.form_submit_button("运行回测", use_container_width=True)
+        entry_slip_pct = st.number_input("开仓滑点比例(如0.0005=0.05%)", 0.0, 0.01, 0.0, format="%.5f", key="br_entry_slip")
+        sl_buffer_pct = st.number_input("止损缓冲比例(如0.002=0.2%)", 0.0, 0.05, 0.0, format="%.4f", key="br_sl_buffer")
     if not run:
         return None, None
 
@@ -230,6 +232,8 @@ def run_breakout(df: pd.DataFrame, lower_fetch=None):
         stop_loss_streak=stop_loss_streak,
         stop_duration_days=stop_duration_days,
         lower_fetch=lower_fetch,
+        entry_slip_pct=entry_slip_pct,
+        sl_buffer_pct=sl_buffer_pct,
     )
     trades_df = pd.DataFrame(trades)
     summary = summarize_trades(trades, key="net_R")
