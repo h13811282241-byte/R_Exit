@@ -57,7 +57,8 @@ def load_data_ui():
                 df = load_csv(tmp.name)
                 st.session_state["data_df"] = df
     else:
-        symbol = st.sidebar.text_input("交易对", "ETHUSDT", key="dl_symbol")
+        symbols = ["ETHUSDT", "DOGEUSDT", "BTCUSDT", "XRPUSDT", "LINKUSDT", "BNBUSDT", "TRXUSDT", "ADAUSDT"]
+        symbol = st.sidebar.selectbox("交易对", symbols, index=0, key="dl_symbol")
         interval = st.sidebar.text_input("周期(如 5m/15m/1h/4h)", "1h", key="dl_interval")
         start = st.sidebar.text_input("开始时间 UTC", "2024-01-01 00:00:00", key="dl_start")
         end = st.sidebar.text_input("结束时间 UTC", "2024-02-01 00:00:00", key="dl_end")
