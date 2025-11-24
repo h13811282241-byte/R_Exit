@@ -49,6 +49,7 @@ def parse_args():
     p.add_argument("--stop_duration_days", type=int, default=0, help="连亏触发后休息的天数")
     p.add_argument("--initial_capital", type=float, default=7000.0, help="复利计算初始资金，默认7000")
     p.add_argument("--risk_perc", type=float, default=0.02, help="每笔风险占用资金比例，默认2%")
+    p.add_argument("--auto_lower_on_conflict", action="store_true", help="未指定 lower_interval 时自动下载 1m 用于判同根先后")
 
     # 绘图
     p.add_argument("--plot", action="store_true", help="生成图表")
@@ -123,6 +124,8 @@ def main():
     lower_df = None
     if args.lower_interval:
         lower_df = load_klines(args, args.lower_interval)
+    elif args.auto_lower_on_conflict:
+        lower_df = load_klines(args, "1m")
     if args.us_session_mode != "all":
         df = filter_us_session(df, args.us_session_mode)
         if lower_df is not None:
