@@ -130,6 +130,7 @@ def simulate_trades(
     lower_fetch=None,
     entry_slip_pct: float = 0.0,
     sl_buffer_pct: float = 0.0,
+    min_risk_pct: float = 0.0,
 ) -> List[Dict]:
     """
     固定 TP (R_target*ATR*k_sl) + 移动止损 (k_trail*ATR)
@@ -206,6 +207,8 @@ def simulate_trades(
         atr_i = sig["atr"]
         risk_abs = k_sl * atr_i
         if risk_abs <= 0:
+            continue
+        if (risk_abs / entry) < min_risk_pct:
             continue
         if side == "long":
             sl = entry - risk_abs - entry * sl_buffer_pct

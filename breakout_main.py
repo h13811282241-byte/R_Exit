@@ -52,6 +52,7 @@ def parse_args():
     p.add_argument("--auto_lower_on_conflict", action="store_true", help="未指定 lower_interval 时自动下载 1m 用于判同根先后")
     p.add_argument("--entry_slip_pct", type=float, default=0.0, help="开仓滑点比例，long 上调，short 下调，如 0.0005=0.05%")
     p.add_argument("--sl_buffer_pct", type=float, default=0.0, help="止损额外缓冲比例：long SL 再减 entry*该比例，short SL 再加")
+    p.add_argument("--min_risk_pct", type=float, default=0.0045, help="最小风险百分比，默认0.45%，低于此视为过小单")
 
     # 绘图
     p.add_argument("--plot", action="store_true", help="生成图表")
@@ -155,6 +156,9 @@ def main():
         lower_interval_sec=parse_interval_seconds(args.lower_interval) if args.lower_interval else 60,
         stop_loss_streak=args.stop_loss_streak,
         stop_duration_days=args.stop_duration_days,
+        entry_slip_pct=args.entry_slip_pct,
+        sl_buffer_pct=args.sl_buffer_pct,
+        min_risk_pct=args.min_risk_pct,
     )
     summary = summarize_trades(trades)
     eq = equity_curve(trades)

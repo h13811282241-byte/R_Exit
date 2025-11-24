@@ -82,6 +82,7 @@ def simulate_basic(
     lower_fetch=None,
     entry_slip_pct: float = 0.0,
     sl_buffer_pct: float = 0.0,
+    min_risk_pct: float = 0.0,
 ) -> List[Dict]:
     """
     signals: list of dict with idx, side, entry, sl, tp (optional), exit_idx (optional)
@@ -154,6 +155,9 @@ def simulate_basic(
         risk = entry - sl if side == "long" else sl - entry
         if risk <= 0:
             continue
+        risk_pct = risk / entry
+        if risk_pct < min_risk_pct:
+            continue
         exit_idx = None
         exit_price = None
         outcome = None
@@ -192,7 +196,7 @@ def simulate_basic(
 
         pnl = (exit_price - entry) if side == "long" else (entry - exit_price)
         raw_R = pnl / risk
-        risk_pct = risk / entry
+        # risk_pct 已计算
         fee_R = fee_round / risk_pct if risk_pct > 0 else 0.0
         net_R = raw_R - fee_R
 
