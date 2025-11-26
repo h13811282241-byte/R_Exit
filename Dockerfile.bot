@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 安装依赖
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt requests pandas
+
+# 复制项目代码
+COPY . .
+
+# 默认环境变量（可在运行时覆盖）
+ENV SYMBOLS="BTCUSDT,ETHUSDT,BNBUSDT,ADAUSDT,LINKUSDT,SUIUSDT,DOGEUSDT"
+ENV RISK_PCT=0.06
+ENV INTERVAL_SEC=300
+ENV PYTHONPATH=/app
+
+# 启动 EMA220 测试网轮询机器人
+CMD ["sh", "-c", "\
+python ema220_bot.py \
+  --symbols ${SYMBOLS} \
+  --risk_pct ${RISK_PCT} \
+  --interval_sec ${INTERVAL_SEC} \
+"]
