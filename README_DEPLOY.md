@@ -153,3 +153,9 @@ sudo systemctl enable --now r-exit-web.service
 - Docker 模式：`docker compose logs -f`，升级时 `docker compose up -d --build`。
 - 手动模式：stdout、`logs/*.log` 或 systemd 的 journald。
 - 重新打包：`bash package.sh`，上传解压后覆盖旧文件并重启服务。*** End Patch*** End Patch*** End Patch*** End Patch*** End Patch*** End Patch*** End Patch*** End Patch*** End Patch*** End Patch***
+
+docker run -p 8000:8000 \
+  -e BINANCE_API_KEY=nD6PlUS9agSE3UNlXkm5L0LGIzDcyeofExox9SAeuL4Kf4rkg767oogsXaP7fl1F
+ \
+  -e BINANCE_API_SECRET=3VhClqO4dyG26rXKSqNG7oqsWXR5nG6EZB6ic6xxsR2iJM9xo6pAyYwaog27qcpe \
+  test-image
